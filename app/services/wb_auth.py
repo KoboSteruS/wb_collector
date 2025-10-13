@@ -63,8 +63,21 @@ class WBAuthService:
         opts.add_argument("--disable-extensions")
         opts.add_argument("--disable-default-apps")
         
+        # Дополнительные флаги для стабильности
+        opts.add_argument("--single-process")
+        opts.add_argument("--disable-features=VizDisplayCompositor")
+        
         logger.debug("Запуск Chrome с headless режимом")
-        return webdriver.Chrome(options=opts)
+        
+        try:
+            from selenium.webdriver.chrome.service import Service
+            service = Service()
+            driver = webdriver.Chrome(service=service, options=opts)
+            logger.info("✅ Chrome успешно запущен")
+            return driver
+        except Exception as e:
+            logger.error(f"❌ Ошибка запуска Chrome: {e}")
+            raise
     
     def _safe_click(self, driver: webdriver.Chrome, elem) -> bool:
         """

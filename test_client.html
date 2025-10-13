@@ -734,80 +734,50 @@
         // === ССЫЛКИ ===
         async function getAllLinks() {
             try {
-                // Сначала получаем список артикулов
-                const articlesResponse = await fetch('http://147.45.219.248:8000/api/v1/articles/list');
-                const articles = await articlesResponse.json();
+                const container = document.getElementById('allLinksResult');
+                container.innerHTML = '<div class="empty-state"><h3>⏳ Формирование глобальной ссылки...</h3></div>';
                 
-                if (articles.length === 0) {
-                    document.getElementById('allLinksResult').innerHTML = `
+                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/global-link');
+                const linkData = await response.json();
+                
+                if (!response.ok) {
+                    container.innerHTML = `
                         <div class="empty-state">
-                            <h3>❌ Нет артикулов</h3>
-                            <p>Добавьте артикулы для генерации ссылок</p>
+                            <h3>❌ Ошибка</h3>
+                            <p>${linkData.detail || 'Не удалось получить ссылку'}</p>
                         </div>
                     `;
                     return;
                 }
                 
-                const container = document.getElementById('allLinksResult');
-                container.innerHTML = '<div class="empty-state"><h3>⏳ Получение ссылок...</h3></div>';
-                
-                let linksHtml = '';
-                let successCount = 0;
-                let errorCount = 0;
-                
-                // Получаем ссылку для каждого артикула
-                for (const article of articles) {
-                    try {
-                        const linkResponse = await fetch(`http://147.45.219.248:8000/api/v1/articles/${article.article_id}/link`);
-                        const linkData = await linkResponse.json();
-                        
-                        if (linkResponse.ok) {
-                            linksHtml += `
-                                <div class="list-item">
-                                    <h3>📦 Артикул ${linkData.article_id}</h3>
-                                    <p><strong>Самый частый SPP:</strong> ${linkData.most_common_spp}%</p>
-                                    <p><strong>Самый частый dest:</strong> ${linkData.most_common_dest}</p>
-                                    <p><strong>Всего парсингов:</strong> ${linkData.total_parses}</p>
-                                    <p><strong>Обновлено:</strong> ${new Date(linkData.last_updated).toLocaleString()}</p>
-                                    
-                                    <div class="link-box">
-                                        <strong>Сгенерированная ссылка:</strong><br>
-                                        <a href="${linkData.generated_url}" target="_blank">${linkData.generated_url}</a>
-                                    </div>
-                                </div>
-                            `;
-                            successCount++;
-                        } else {
-                            linksHtml += `
-                                <div class="list-item" style="border-left-color: #f44336;">
-                                    <h3>📦 Артикул ${article.article_id}</h3>
-                                    <p style="color: #f44336;"><strong>❌ Ошибка:</strong> ${linkData.detail}</p>
-                                </div>
-                            `;
-                            errorCount++;
-                        }
-                    } catch (error) {
-                        linksHtml += `
-                            <div class="list-item" style="border-left-color: #f44336;">
-                                <h3>📦 Артикул ${article.article_id}</h3>
-                                <p style="color: #f44336;"><strong>❌ Ошибка:</strong> ${error.message}</p>
-                            </div>
-                        `;
-                        errorCount++;
-                    }
-                }
-                
-                // Добавляем сводку
-                const summary = `
+                container.innerHTML = `
+                    <div class="list-item" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none;">
+                        <h2 style="color: white; margin-bottom: 15px;">🌍 ГЛОБАЛЬНАЯ ССЫЛКА</h2>
+                        <p><strong>Самый частый SPP:</strong> ${linkData.most_common_spp}%</p>
+                        <p><strong>Самый частый dest:</strong> ${linkData.most_common_dest}</p>
+                        <p><strong>Всего точек данных:</strong> ${linkData.total_parses}</p>
+                    </div>
+                    
+                    <div class="list-item" style="background: #e3f2fd; border-left-color: #2196f3;">
+                        <h3>📊 Статистика анализа</h3>
+                        <p><strong>📦 Всего артикулов:</strong> ${linkData.stats.total_articles}</p>
+                        <p><strong>✅ Проанализировано:</strong> ${linkData.stats.parsed_articles}</p>
+                        <p><strong>📊 Точек данных:</strong> ${linkData.stats.total_data_points}</p>
+                        <p><strong>🔢 Уникальных SPP:</strong> ${linkData.stats.unique_spp_values}</p>
+                        <p><strong>🎯 Уникальных dest:</strong> ${linkData.stats.unique_dest_values}</p>
+                    </div>
+                    
                     <div class="list-item" style="background: #e8f5e9; border-left-color: #4caf50;">
-                        <h3>📊 Сводка</h3>
-                        <p><strong>✅ Успешно:</strong> ${successCount}</p>
-                        <p><strong>❌ Ошибок:</strong> ${errorCount}</p>
-                        <p><strong>📦 Всего артикулов:</strong> ${articles.length}</p>
+                        <h3>🔗 Сгенерированная ссылка:</h3>
+                        <div class="link-box">
+                            <a href="${linkData.generated_url}" target="_blank">${linkData.generated_url}</a>
+                        </div>
+                        <button onclick="navigator.clipboard.writeText('${linkData.generated_url}')" 
+                                style="margin-top: 15px; padding: 12px 24px; background: #4caf50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px;">
+                            📋 Копировать ссылку
+                        </button>
                     </div>
                 `;
-                
-                container.innerHTML = summary + linksHtml;
                 
             } catch (error) {
                 document.getElementById('allLinksResult').innerHTML = `
