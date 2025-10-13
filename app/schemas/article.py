@@ -4,7 +4,7 @@ Pydantic схемы для артикулов
 Схемы для валидации запросов и ответов API.
 """
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 
 
@@ -38,6 +38,7 @@ class LinkResponse(BaseModel):
     most_common_dest: str = Field(..., description="Самый частый dest")
     total_parses: int = Field(..., description="Количество парсингов")
     last_updated: Optional[str] = Field(None, description="Последнее обновление")
+    stats: Optional[Dict[str, Any]] = Field(None, description="Дополнительная статистика")
 
 
 class ParsingStatus(BaseModel):
