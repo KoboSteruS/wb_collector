@@ -74,20 +74,28 @@ class WBAuthService:
             import subprocess
             import os
             
-            # Устанавливаем PATH для ChromeDriver
-            chrome_dir = '/opt/google/chrome'
-            if os.path.exists(chrome_dir):
-                os.environ['PATH'] = f"{chrome_dir}:{os.environ.get('PATH', '')}"
-                logger.debug(f"Добавлен {chrome_dir} в PATH")
+            # ФИНАЛЬНОЕ РЕШЕНИЕ: создаем симлинк программно
+            import subprocess
+            chrome_binary = '/opt/google/chrome/chrome'
+            chrome_link = '/usr/bin/google-chrome'
+            
+            # Если симлинк не существует или указывает не туда - пересоздаем
+            if not os.path.exists(chrome_link) or os.path.realpath(chrome_link) != chrome_binary:
+                try:
+                    # Удаляем старый если есть
+                    if os.path.exists(chrome_link):
+                        os.remove(chrome_link)
+                    # Создаем новый симлинк
+                    os.symlink(chrome_binary, chrome_link)
+                    logger.info(f"✅ Создан симлинк: {chrome_link} -> {chrome_binary}")
+                except Exception as e:
+                    logger.warning(f"⚠️ Не удалось создать симлинк (нужен sudo): {e}")
+                    # Если не получилось - используем binary_location
+                    opts.binary_location = chrome_binary
+                    logger.info(f"Используем binary_location: {chrome_binary}")
             
             logger.info("🚀 Запускаем ChromeDriver")
-            
-            # Создаем сервис с дополнительными переменными окружения
             service = Service()
-            service.env = os.environ.copy()
-            service.env['CHROME_BIN'] = '/opt/google/chrome/chrome'
-            
-            # Запускаем БЕЗ binary_location - пусть ChromeDriver использует CHROME_BIN
             driver = webdriver.Chrome(service=service, options=opts)
             logger.info("✅ Chrome драйвер успешно запущен")
             return driver
