@@ -70,31 +70,15 @@ class WBAuthService:
         logger.debug("Запуск Chrome с headless режимом")
         
         try:
-            import undetected_chromedriver as uc
+            from selenium.webdriver.chrome.service import Service
             
-            logger.info("🚀 Запускаем Chrome через undetected-chromedriver")
+            logger.info("🚀 Запускаем Chrome через Selenium")
             
-            # Создаем опции для undetected_chromedriver
-            uc_options = uc.ChromeOptions()
+            # Используем обычный Selenium с правильными путями
+            service = Service(executable_path='/usr/bin/chromedriver')
+            driver = webdriver.Chrome(service=service, options=opts)
             
-            # Копируем все опции из opts (кроме headless - он конфликтует)
-            for arg in opts.arguments:
-                if '--headless' not in arg:
-                    uc_options.add_argument(arg)
-            
-            # Для headless на сервере используем новый режим
-            if self.headless:
-                uc_options.add_argument('--headless=new')
-            
-            # undetected_chromedriver автоматически найдет Chrome и скачает подходящий драйвер
-            driver = uc.Chrome(
-                options=uc_options,
-                headless=False,  # НЕ используем встроенный headless uc
-                use_subprocess=False,  # Важно для стабильности
-                version_main=None  # Автоопределение версии
-            )
-            
-            logger.info("✅ Chrome успешно запущен через undetected-chromedriver")
+            logger.info("✅ Chrome успешно запущен")
             return driver
         except Exception as e:
             logger.error(f"❌ Ошибка запуска Chrome: {e}")
