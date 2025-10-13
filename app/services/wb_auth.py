@@ -71,29 +71,43 @@ class WBAuthService:
         
         try:
             from selenium.webdriver.chrome.service import Service
+            import subprocess
             import os
             
-            # Ищем Chrome в разных местах
-            chrome_paths = [
-                '/usr/bin/google-chrome',
-                '/usr/bin/chromium',
-                '/usr/bin/chromium-browser',
+            # Пытаемся найти реальный путь к Chrome через which
+            chrome_paths_to_try = [
+                'google-chrome',
+                'google-chrome-stable', 
+                'chromium',
+                'chromium-browser',
                 '/snap/bin/chromium'
             ]
             
             chrome_binary = None
-            for path in chrome_paths:
-                if os.path.exists(path):
-                    chrome_binary = path
-                    logger.debug(f"Найден Chrome: {path}")
-                    break
+            for cmd in chrome_paths_to_try:
+                try:
+                    result = subprocess.run(['which', cmd], capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0:
+                        path = result.stdout.strip()
+                        if path and os.path.exists(path):
+                            # Разрешаем символические ссылки до реального файла
+                            real_path = os.path.realpath(path)
+                            if os.path.exists(real_path) and os.access(real_path, os.X_OK):
+                                chrome_binary = real_path
+                                logger.info(f"✅ Найден Chrome: {path} -> {real_path}")
+                                break
+                except Exception as e:
+                    logger.debug(f"Не удалось проверить {cmd}: {e}")
+                    continue
             
             if chrome_binary:
                 opts.binary_location = chrome_binary
+            else:
+                logger.warning("⚠️ Chrome не найден автоматически, используем значение по умолчанию")
             
             service = Service()
             driver = webdriver.Chrome(service=service, options=opts)
-            logger.info("✅ Chrome успешно запущен")
+            logger.info("✅ Chrome драйвер успешно запущен")
             return driver
         except Exception as e:
             logger.error(f"❌ Ошибка запуска Chrome: {e}")

@@ -111,24 +111,38 @@ class WBParserService:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-default-apps")
         
-        # Ищем Chrome в разных местах
+        # Ищем Chrome через which
+        import subprocess
         import os
-        chrome_paths = [
-            '/usr/bin/google-chrome',
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
+        
+        chrome_paths_to_try = [
+            'google-chrome',
+            'google-chrome-stable',
+            'chromium',
+            'chromium-browser',
             '/snap/bin/chromium'
         ]
         
         chrome_binary = None
-        for path in chrome_paths:
-            if os.path.exists(path):
-                chrome_binary = path
-                logger.debug(f"Найден Chrome для парсинга: {path}")
-                break
+        for cmd in chrome_paths_to_try:
+            try:
+                result = subprocess.run(['which', cmd], capture_output=True, text=True, timeout=5)
+                if result.returncode == 0:
+                    path = result.stdout.strip()
+                    if path and os.path.exists(path):
+                        # Разрешаем символические ссылки до реального файла
+                        real_path = os.path.realpath(path)
+                        if os.path.exists(real_path) and os.access(real_path, os.X_OK):
+                            chrome_binary = real_path
+                            logger.info(f"✅ Найден Chrome для парсинга: {path} -> {real_path}")
+                            break
+            except Exception:
+                continue
         
         if chrome_binary:
             options.binary_location = chrome_binary
+        else:
+            logger.warning("⚠️ Chrome не найден для парсинга, используем по умолчанию")
         
         logger.debug("Запуск Chrome для парсинга")
         driver = webdriver.Chrome(options=options)
