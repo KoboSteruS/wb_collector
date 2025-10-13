@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WB Collector - Панель управления</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background: #5568d3;
+        }
+        
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .log-container {
+            margin-top: 30px;
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        
+        .log-entry {
+            padding: 8px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .log-info {
+            background: #e3f2fd;
+            color: #1976d2;
+        }
+        
+        .log-success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .log-error {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .log-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin: 20px 0;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        .status.connected {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .status.disconnected {
+            background: #ffebee;
+            color: #d32f2f;
+        }
+        
+        .code-input-container {
+            display: none;
+        }
+        
+        .code-input-container.active {
+            display: block;
+        }
+        
+        /* Вкладки */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+        
+        .tab {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+        }
+        
+        .tab:hover {
+            color: #667eea;
+        }
+        
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Список */
+        .list-item {
+            padding: 15px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .list-item h3 {
+            margin: 0 0 8px 0;
+            color: #333;
+        }
+        
+        .list-item p {
+            margin: 4px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .badge-success {
+            background: #e8f5e9;
+            color: #388e3c;
+        }
+        
+        .badge-warning {
+            background: #fff3e0;
+            color: #f57c00;
+        }
+        
+        .link-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            word-break: break-all;
+        }
+        
+        .link-box a {
+            color: #1976d2;
+            text-decoration: none;
+        }
+        
+        .link-box a:hover {
+            text-decoration: underline;
+        }
+        
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            flex: 1;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .stat-card p {
+            margin: 0;
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+        
+        .empty-state h3 {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛒 WB Collector</h1>
+        
+        <!-- Вкладки -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('accounts')">👤 Аккаунты</button>
+            <button class="tab" onclick="switchTab('articles')">📦 Артикулы</button>
+            <button class="tab" onclick="switchTab('parsing')">🔍 Парсинг</button>
+            <button class="tab" onclick="switchTab('links')">🔗 Ссылки</button>
+        </div>
+        
+        <!-- ВКЛАДКА: Аккаунты -->
+        <div id="tab-accounts" class="tab-content active">
+            <div id="status" class="status disconnected">
+                Не подключено
+            </div>
+        
+        <!-- Форма создания аккаунта -->
+        <div id="accountForm">
+            <div class="form-group">
+                <label for="accountName">Название аккаунта:</label>
+                <input type="text" id="accountName" placeholder="Например: Основной аккаунт">
+            </div>
+            
+            <div class="form-group">
+                <label for="phoneNumber">Номер телефона (без +7):</label>
+                <input type="text" id="phoneNumber" placeholder="9522675444" maxlength="10">
+            </div>
+            
+            <button id="startBtn" onclick="startAuth()">
+                Начать авторизацию
+            </button>
+        </div>
+        
+        <!-- Поле ввода кода -->
+        <div id="codeInputContainer" class="code-input-container">
+            <div class="form-group">
+                <label for="smsCode">Код из SMS:</label>
+                <input type="text" id="smsCode" placeholder="1234" maxlength="6">
+            </div>
+            
+            <button id="submitCodeBtn" onclick="submitCode()">
+                Отправить код
+            </button>
+        </div>
+        
+            <!-- Список аккаунтов -->
+            <h3 style="margin-top: 30px;">Список аккаунтов:</h3>
+            <div id="accountsList"></div>
+            
+            <!-- Логи -->
+            <div class="log-container">
+                <div class="log-title">📋 Логи авторизации:</div>
+                <div id="logs"></div>
+            </div>
+        </div>
+        
+        <!-- ВКЛАДКА: Артикулы -->
+        <div id="tab-articles" class="tab-content">
+            <h2>📦 Управление артикулами</h2>
+            
+            <div class="form-group">
+                <label for="articleId">ID артикула WB:</label>
+                <input type="text" id="articleId" placeholder="15526304">
+            </div>
+            
+            <button onclick="addArticle()">Добавить артикул</button>
+            
+            <h3 style="margin-top: 30px;">Список артикулов:</h3>
+            <div id="articlesList"></div>
+        </div>
+        
+        <!-- ВКЛАДКА: Парсинг -->
+        <div id="tab-parsing" class="tab-content">
+            <h2>🔍 Парсинг и расписание</h2>
+            
+            <div id="scheduleInfo" class="stats"></div>
+            
+            <button onclick="runParsingNow()" style="background: #f57c00;">
+                ⚡ Запустить парсинг сейчас
+            </button>
+            
+            <div class="log-container" style="margin-top: 20px;">
+                <div class="log-title">📋 Логи парсинга:</div>
+                <div id="parsingLogs"></div>
+            </div>
+        </div>
+        
+        <!-- ВКЛАДКА: Ссылки -->
+        <div id="tab-links" class="tab-content">
+            <h2>🔗 Сгенерированные ссылки</h2>
+            
+            <button onclick="getAllLinks()" style="background: #4caf50; margin-bottom: 20px;">
+                🔗 Получить ссылки для всех артикулов
+            </button>
+            
+            <div id="allLinksResult"></div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let sessionId = null;
+        
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        function updateStatus(text, connected) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = text;
+            statusDiv.className = `status ${connected ? 'connected' : 'disconnected'}`;
+        }
+        
+        async function startAuth() {
+            const name = document.getElementById('accountName').value.trim();
+            const phone = document.getElementById('phoneNumber').value.trim();
+            
+            if (!name || !phone) {
+                alert('Заполните все поля!');
+                return;
+            }
+            
+            if (phone.length !== 10 || !/^\d+$/.test(phone)) {
+                alert('Номер должен содержать ровно 10 цифр!');
+                return;
+            }
+            
+            document.getElementById('startBtn').disabled = true;
+            log('🚀 Инициализация авторизации...', 'info');
+            
+            try {
+                // Шаг 1: Создаем сессию
+                const response = await fetch('http://localhost:8000/api/v1/accounts/add_account', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        phone: phone
+                    })
+                });
+                
+                const data = await response.json();
+                sessionId = data.session_id;
+                
+                log(`✅ Сессия создана: ${sessionId}`, 'success');
+                log('🔌 Подключение к WebSocket...', 'info');
+                
+                // Шаг 2: Подключаемся к WebSocket
+                connectWebSocket(sessionId);
+                
+            } catch (error) {
+                log(`❌ Ошибка: ${error.message}`, 'error');
+                document.getElementById('startBtn').disabled = false;
+            }
+        }
+        
+        function connectWebSocket(sessionId) {
+            ws = new WebSocket(`ws://localhost:8000/api/v1/ws/auth/${sessionId}`);
+            
+            ws.onopen = () => {
+                log('✅ WebSocket подключен', 'success');
+                updateStatus('Подключено', true);
+            };
+            
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                handleMessage(message);
+            };
+            
+            ws.onerror = (error) => {
+                log(`❌ Ошибка WebSocket`, 'error');
+                updateStatus('Ошибка подключения', false);
+            };
+            
+            ws.onclose = () => {
+                log('🔌 WebSocket отключен', 'warning');
+                updateStatus('Отключено', false);
+                document.getElementById('startBtn').disabled = false;
+            };
+        }
+        
+        function handleMessage(message) {
+            const type = message.type;
+            const data = message.data;
+            
+            switch(type) {
+                case 'status':
+                    log(`📊 ${data.message}`, 'info');
+                    
+                    if (data.step === 'waiting_for_code') {
+                        // Показываем поле ввода кода
+                        document.getElementById('accountForm').style.display = 'none';
+                        document.getElementById('codeInputContainer').classList.add('active');
+                        log('⏳ ВВЕДИТЕ КОД ИЗ SMS!', 'warning');
+                        document.getElementById('smsCode').focus();
+                    }
+                    break;
+                
+                case 'account_created':
+                    log(`✅ Аккаунт создан: ${data.account_uuid}`, 'success');
+                    break;
+                
+                case 'completed':
+                    log(`🎉 АВТОРИЗАЦИЯ ЗАВЕРШЕНА!`, 'success');
+                    log(`UUID аккаунта: ${data.account_uuid}`, 'success');
+                    updateStatus('✅ Успешно завершено', true);
+                    
+                    setTimeout(() => {
+                        location.reload();
+                    }, 3000);
+                    break;
+                
+                case 'error':
+                    log(`❌ ОШИБКА: ${data.message}`, 'error');
+                    updateStatus('❌ Ошибка', false);
+                    break;
+                
+                case 'pong':
+                    // Ответ на ping
+                    break;
+            }
+        }
+        
+        function submitCode() {
+            const code = document.getElementById('smsCode').value.trim();
+            
+            if (!code) {
+                alert('Введите код!');
+                return;
+            }
+            
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log(`📤 Отправка кода: ${code}`, 'info');
+                
+                ws.send(JSON.stringify({
+                    type: 'submit_code',
+                    code: code
+                }));
+                
+                document.getElementById('submitCodeBtn').disabled = true;
+                document.getElementById('smsCode').disabled = true;
+            } else {
+                alert('WebSocket не подключен!');
+            }
+        }
+        
+        // Отправка кода по Enter
+        document.getElementById('smsCode').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitCode();
+            }
+        });
+        
+        // Начальный лог
+        log('Готов к работе', 'info');
+        
+        // Загружаем аккаунты при загрузке страницы
+        loadAccounts();
+        
+        // === ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК ===
+        function switchTab(tabName) {
+            // Скрываем все вкладки
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelectorAll('.tab').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Показываем нужную
+            document.getElementById(`tab-${tabName}`).classList.add('active');
+            event.target.classList.add('active');
+            
+            // Загружаем данные
+            if (tabName === 'articles') {
+                loadArticles();
+            } else if (tabName === 'parsing') {
+                loadScheduleInfo();
+            } else if (tabName === 'links') {
+                loadArticles(); // Для отображения
+            } else if (tabName === 'accounts') {
+                loadAccounts();
+            }
+        }
+        
+        // === АРТИКУЛЫ ===
+        async function addArticle() {
+            const articleId = document.getElementById('articleId').value.trim();
+            
+            if (!articleId) {
+                alert('Введите ID артикула!');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/articles/add', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({article_id: articleId})
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ Артикул ${articleId} добавлен!`);
+                    document.getElementById('articleId').value = '';
+                    loadArticles();
+                } else {
+                    alert(`❌ Ошибка: ${data.detail}`);
+                }
+            } catch (error) {
+                alert(`❌ Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function loadArticles() {
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/articles/list');
+                const articles = await response.json();
+                
+                const container = document.getElementById('articlesList');
+                
+                if (articles.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Нет артикулов</h3>
+                            <p>Добавьте первый артикул для парсинга</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = articles.map(article => `
+                    <div class="list-item">
+                        <h3>📦 ${article.article_id}</h3>
+                        <p><strong>UUID:</strong> ${article.uuid}</p>
+                        <p><strong>Добавлен:</strong> ${new Date(article.created_at).toLocaleString()}</p>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Ошибка загрузки артикулов:', error);
+            }
+        }
+        
+        // === ПАРСИНГ ===
+        async function loadScheduleInfo() {
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/articles/schedule/status');
+                const data = await response.json();
+                
+                const container = document.getElementById('scheduleInfo');
+                container.innerHTML = `
+                    <div class="stat-card">
+                        <h4>Статус</h4>
+                        <p>${data.enabled ? '✅ Включен' : '❌ Выключен'}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Расписание</h4>
+                        <p>${String(data.schedule_hour).padStart(2, '0')}:${String(data.schedule_minute).padStart(2, '0')}</p>
+                    </div>
+                    <div class="stat-card">
+                        <h4>Режим</h4>
+                        <p>${data.headless ? '🌑 Headless' : '🖥️ Видимый'}</p>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Ошибка загрузки расписания:', error);
+            }
+        }
+        
+        function parsingLog(message, type = 'info') {
+            const logsDiv = document.getElementById('parsingLogs');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        async function runParsingNow() {
+            parsingLog('🚀 Запуск парсинга...', 'info');
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/articles/parse/now', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    parsingLog(`✅ ${data.message}`, 'success');
+                    parsingLog(`📊 Обработано записей: ${data.total_parsed}`, 'success');
+                } else {
+                    parsingLog(`❌ Ошибка: ${data.detail}`, 'error');
+                }
+            } catch (error) {
+                parsingLog(`❌ Ошибка: ${error.message}`, 'error');
+            }
+        }
+        
+        // === АККАУНТЫ ===
+        async function loadAccounts() {
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/accounts/list');
+                const accounts = await response.json();
+                
+                const container = document.getElementById('accountsList');
+                
+                if (accounts.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>Нет аккаунтов</h3>
+                            <p>Добавьте первый аккаунт WB</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = accounts.map(account => `
+                    <div class="list-item">
+                        <h3>👤 ${account.name} ${account.has_cookies ? '<span class="badge badge-success">✅ Активен</span>' : '<span class="badge badge-warning">⚠️ Нет cookies</span>'}</h3>
+                        <p><strong>Телефон:</strong> ${account.phone}</p>
+                        <p><strong>UUID:</strong> ${account.uuid}</p>
+                        <p><strong>Создан:</strong> ${new Date(account.created_at).toLocaleString()}</p>
+                        ${account.updated_at ? `<p><strong>Обновлен:</strong> ${new Date(account.updated_at).toLocaleString()}</p>` : ''}
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                console.error('Ошибка загрузки аккаунтов:', error);
+            }
+        }
+        
+        // === ССЫЛКИ ===
+        async function getAllLinks() {
+            try {
+                // Сначала получаем список артикулов
+                const articlesResponse = await fetch('http://localhost:8000/api/v1/articles/list');
+                const articles = await articlesResponse.json();
+                
+                if (articles.length === 0) {
+                    document.getElementById('allLinksResult').innerHTML = `
+                        <div class="empty-state">
+                            <h3>❌ Нет артикулов</h3>
+                            <p>Добавьте артикулы для генерации ссылок</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                const container = document.getElementById('allLinksResult');
+                container.innerHTML = '<div class="empty-state"><h3>⏳ Получение ссылок...</h3></div>';
+                
+                let linksHtml = '';
+                let successCount = 0;
+                let errorCount = 0;
+                
+                // Получаем ссылку для каждого артикула
+                for (const article of articles) {
+                    try {
+                        const linkResponse = await fetch(`http://localhost:8000/api/v1/articles/${article.article_id}/link`);
+                        const linkData = await linkResponse.json();
+                        
+                        if (linkResponse.ok) {
+                            linksHtml += `
+                                <div class="list-item">
+                                    <h3>📦 Артикул ${linkData.article_id}</h3>
+                                    <p><strong>Самый частый SPP:</strong> ${linkData.most_common_spp}%</p>
+                                    <p><strong>Самый частый dest:</strong> ${linkData.most_common_dest}</p>
+                                    <p><strong>Всего парсингов:</strong> ${linkData.total_parses}</p>
+                                    <p><strong>Обновлено:</strong> ${new Date(linkData.last_updated).toLocaleString()}</p>
+                                    
+                                    <div class="link-box">
+                                        <strong>Сгенерированная ссылка:</strong><br>
+                                        <a href="${linkData.generated_url}" target="_blank">${linkData.generated_url}</a>
+                                    </div>
+                                </div>
+                            `;
+                            successCount++;
+                        } else {
+                            linksHtml += `
+                                <div class="list-item" style="border-left-color: #f44336;">
+                                    <h3>📦 Артикул ${article.article_id}</h3>
+                                    <p style="color: #f44336;"><strong>❌ Ошибка:</strong> ${linkData.detail}</p>
+                                </div>
+                            `;
+                            errorCount++;
+                        }
+                    } catch (error) {
+                        linksHtml += `
+                            <div class="list-item" style="border-left-color: #f44336;">
+                                <h3>📦 Артикул ${article.article_id}</h3>
+                                <p style="color: #f44336;"><strong>❌ Ошибка:</strong> ${error.message}</p>
+                            </div>
+                        `;
+                        errorCount++;
+                    }
+                }
+                
+                // Добавляем сводку
+                const summary = `
+                    <div class="list-item" style="background: #e8f5e9; border-left-color: #4caf50;">
+                        <h3>📊 Сводка</h3>
+                        <p><strong>✅ Успешно:</strong> ${successCount}</p>
+                        <p><strong>❌ Ошибок:</strong> ${errorCount}</p>
+                        <p><strong>📦 Всего артикулов:</strong> ${articles.length}</p>
+                    </div>
+                `;
+                
+                container.innerHTML = summary + linksHtml;
+                
+            } catch (error) {
+                document.getElementById('allLinksResult').innerHTML = `
+                    <div class="empty-state">
+                        <h3>❌ Ошибка</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>
+
