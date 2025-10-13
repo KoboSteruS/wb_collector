@@ -74,18 +74,26 @@ class WBAuthService:
             import subprocess
             import os
             
-            # Явно указываем путь к Chrome
-            chrome_binary = '/usr/bin/google-chrome'
-            opts.binary_location = chrome_binary
-            logger.info(f"🔍 Chrome binary установлен: {chrome_binary}")
+            # Явно указываем пути к Chrome и ChromeDriver
+            chrome_binary = '/opt/google/chrome/chrome'  # РЕАЛЬНЫЙ БИНАРНИК
+            chromedriver_path = '/usr/bin/chromedriver'  # Путь к драйверу
             
-            # Проверяем что файл существует
+            opts.binary_location = chrome_binary
+            logger.info(f"🔍 Chrome binary: {chrome_binary}")
+            logger.info(f"🔍 ChromeDriver: {chromedriver_path}")
+            
+            # Проверяем существование файлов
             if not os.path.exists(chrome_binary):
-                logger.error(f"❌ Chrome не найден по пути: {chrome_binary}")
+                logger.error(f"❌ Chrome не найден: {chrome_binary}")
                 raise FileNotFoundError(f"Chrome binary not found: {chrome_binary}")
             
+            if not os.path.exists(chromedriver_path):
+                logger.warning(f"⚠️ ChromeDriver не найден по пути: {chromedriver_path}, используем системный")
+                service = Service()
+            else:
+                service = Service(executable_path=chromedriver_path)
+            
             logger.info("🚀 Запускаем ChromeDriver")
-            service = Service()
             driver = webdriver.Chrome(service=service, options=opts)
             logger.info("✅ Chrome драйвер успешно запущен")
             return driver

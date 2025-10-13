@@ -111,16 +111,19 @@ class WBParserService:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-default-apps")
         
-        # Явно указываем путь к Chrome
+        # Явно указываем пути к Chrome и ChromeDriver
         import os
         from selenium.webdriver.chrome.service import Service
         
-        chrome_binary = '/usr/bin/google-chrome'
+        chrome_binary = '/opt/google/chrome/chrome'
+        chromedriver_path = '/usr/bin/chromedriver'
+        
         options.binary_location = chrome_binary
         logger.info(f"🔍 Chrome binary для парсинга: {chrome_binary}")
+        logger.info(f"🔍 ChromeDriver для парсинга: {chromedriver_path}")
         
         logger.debug("Запуск Chrome для парсинга")
-        service = Service()
+        service = Service(executable_path=chromedriver_path) if os.path.exists(chromedriver_path) else Service()
         driver = webdriver.Chrome(service=service, options=options)
         driver.scopes = ['.*u-card.wb.ru/cards/v4/detail.*']
         
