@@ -77,15 +77,20 @@ class WBAuthService:
             # Создаем опции для undetected_chromedriver
             uc_options = uc.ChromeOptions()
             
-            # Копируем все опции из opts
+            # Копируем все опции из opts (кроме headless - он конфликтует)
             for arg in opts.arguments:
-                uc_options.add_argument(arg)
+                if '--headless' not in arg:
+                    uc_options.add_argument(arg)
+            
+            # Для headless на сервере используем новый режим
+            if self.headless:
+                uc_options.add_argument('--headless=new')
             
             # undetected_chromedriver автоматически найдет Chrome и скачает подходящий драйвер
             driver = uc.Chrome(
                 options=uc_options,
-                headless=self.headless,
-                use_subprocess=True,
+                headless=False,  # НЕ используем встроенный headless uc
+                use_subprocess=False,  # Важно для стабильности
                 version_main=None  # Автоопределение версии
             )
             
