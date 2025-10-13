@@ -74,29 +74,20 @@ class WBAuthService:
             import subprocess
             import os
             
-            # Специальная логика для Google Chrome - ищем реальный бинарник
-            chrome_binary = None
+            # Устанавливаем PATH для ChromeDriver
+            chrome_dir = '/opt/google/chrome'
+            if os.path.exists(chrome_dir):
+                os.environ['PATH'] = f"{chrome_dir}:{os.environ.get('PATH', '')}"
+                logger.debug(f"Добавлен {chrome_dir} в PATH")
             
-            # Сначала пробуем стандартные пути к реальному бинарнику
-            direct_paths = [
-                '/opt/google/chrome/chrome',  # Настоящий бинарник Chrome
-                '/usr/bin/chromium',
-                '/usr/bin/chromium-browser',
-                '/snap/bin/chromium'
-            ]
+            logger.info("🚀 Запускаем ChromeDriver")
             
-            for path in direct_paths:
-                if os.path.exists(path) and os.access(path, os.X_OK):
-                    chrome_binary = path
-                    logger.info(f"✅ Найден Chrome бинарник: {path}")
-                    break
-            
-            if chrome_binary:
-                opts.binary_location = chrome_binary
-            else:
-                logger.warning("⚠️ Chrome не найден, используем значение по умолчанию")
-            
+            # Создаем сервис с дополнительными переменными окружения
             service = Service()
+            service.env = os.environ.copy()
+            service.env['CHROME_BIN'] = '/opt/google/chrome/chrome'
+            
+            # Запускаем БЕЗ binary_location - пусть ChromeDriver использует CHROME_BIN
             driver = webdriver.Chrome(service=service, options=opts)
             logger.info("✅ Chrome драйвер успешно запущен")
             return driver

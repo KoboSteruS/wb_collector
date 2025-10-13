@@ -111,30 +111,23 @@ class WBParserService:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-default-apps")
         
-        # Ищем реальный бинарник Chrome
+        # Устанавливаем PATH и переменные окружения для Chrome
         import os
+        from selenium.webdriver.chrome.service import Service
         
-        chrome_binary = None
-        direct_paths = [
-            '/opt/google/chrome/chrome',  # Настоящий бинарник Chrome
-            '/usr/bin/chromium',
-            '/usr/bin/chromium-browser',
-            '/snap/bin/chromium'
-        ]
+        chrome_dir = '/opt/google/chrome'
+        if os.path.exists(chrome_dir):
+            os.environ['PATH'] = f"{chrome_dir}:{os.environ.get('PATH', '')}"
         
-        for path in direct_paths:
-            if os.path.exists(path) and os.access(path, os.X_OK):
-                chrome_binary = path
-                logger.info(f"✅ Найден Chrome для парсинга: {path}")
-                break
+        logger.info("🚀 Запускаем ChromeDriver для парсинга")
         
-        if chrome_binary:
-            options.binary_location = chrome_binary
-        else:
-            logger.warning("⚠️ Chrome не найден для парсинга")
+        # Создаем сервис с переменными окружения
+        service = Service()
+        service.env = os.environ.copy()
+        service.env['CHROME_BIN'] = '/opt/google/chrome/chrome'
         
         logger.debug("Запуск Chrome для парсинга")
-        driver = webdriver.Chrome(options=options)
+        driver = webdriver.Chrome(service=service, options=options)
         driver.scopes = ['.*u-card.wb.ru/cards/v4/detail.*']
         
         try:
