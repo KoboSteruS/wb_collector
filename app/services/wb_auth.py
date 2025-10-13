@@ -47,10 +47,6 @@ class WBAuthService:
         if self.headless:
             opts.add_argument("--headless=new")
         
-        # Создаем уникальную директорию для каждой сессии
-        user_data_dir = tempfile.mkdtemp(prefix=f"chrome_session_{uuid4().hex[:8]}_")
-        opts.add_argument(f"--user-data-dir={user_data_dir}")
-        
         # Флаги для работы без GPU (Ubuntu сервер)
         opts.add_argument("--disable-gpu")
         opts.add_argument("--disable-software-rasterizer")
@@ -62,8 +58,12 @@ class WBAuthService:
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--window-size=1280,2400")
         opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-        opts.add_argument("--remote-debugging-port=9222")
         
+        # Отключаем использование профиля - Chrome сам создаст временный
+        opts.add_argument("--disable-extensions")
+        opts.add_argument("--disable-default-apps")
+        
+        logger.debug("Запуск Chrome с headless режимом")
         return webdriver.Chrome(options=opts)
     
     def _safe_click(self, driver: webdriver.Chrome, elem) -> bool:

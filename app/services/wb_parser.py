@@ -98,10 +98,6 @@ class WBParserService:
         if self.headless:
             options.add_argument("--headless=new")
         
-        # Создаем уникальную директорию для каждой сессии
-        user_data_dir = tempfile.mkdtemp(prefix=f"chrome_parser_{uuid4().hex[:8]}_")
-        options.add_argument(f"--user-data-dir={user_data_dir}")
-        
         # Флаги для работы без GPU (Ubuntu сервер)
         options.add_argument("--disable-gpu")
         options.add_argument("--disable-software-rasterizer")
@@ -112,8 +108,10 @@ class WBParserService:
         # Остальные флаги
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--remote-debugging-port=9223")
+        options.add_argument("--disable-extensions")
+        options.add_argument("--disable-default-apps")
         
+        logger.debug("Запуск Chrome для парсинга")
         driver = webdriver.Chrome(options=options)
         driver.scopes = ['.*u-card.wb.ru/cards/v4/detail.*']
         
