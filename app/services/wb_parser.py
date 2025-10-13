@@ -140,9 +140,10 @@ class WBParserService:
             # Открываем страницу товара
             product_url = f"https://www.wildberries.ru/catalog/{article_id}/detail.aspx"
             driver.get(product_url)
-            time.sleep(3)  # Ждем загрузки (ускорено с 8 до 3 сек)
+            time.sleep(5)  # Ждем загрузки и API запросов
             
             # Собираем запросы
+            logger.debug(f"Перехвачено запросов: {len(driver.requests)}")
             result = None
             for request in driver.requests:
                 if "u-card.wb.ru/cards/v4/detail" in request.url and request.response:
@@ -180,6 +181,9 @@ class WBParserService:
                             f"(SPP {spp_real}%) | dest={dest} | qty={item.get('qty')}"
                         )
                         break
+            
+            if not result:
+                logger.warning(f"⚠️ Не найдены данные для артикула {article_id} (запросов: {len(driver.requests)})")
             
             return result
             
