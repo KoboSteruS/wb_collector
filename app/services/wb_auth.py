@@ -6,7 +6,9 @@
 
 import time
 import json
+import tempfile
 from typing import Optional
+from uuid import uuid4
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -44,6 +46,11 @@ class WBAuthService:
         opts = Options()
         if self.headless:
             opts.add_argument("--headless=new")
+        
+        # Создаем уникальную директорию для каждой сессии
+        user_data_dir = tempfile.mkdtemp(prefix=f"chrome_session_{uuid4().hex[:8]}_")
+        opts.add_argument(f"--user-data-dir={user_data_dir}")
+        
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")

@@ -7,9 +7,11 @@
 import json
 import gzip
 import time
+import tempfile
 from io import BytesIO
 from urllib.parse import urlparse, parse_qs
 from typing import Optional, List, Dict
+from uuid import uuid4
 
 from seleniumwire import webdriver
 from selenium.webdriver.chrome.options import Options
@@ -95,6 +97,11 @@ class WBParserService:
         options = Options()
         if self.headless:
             options.add_argument("--headless=new")
+        
+        # Создаем уникальную директорию для каждой сессии
+        user_data_dir = tempfile.mkdtemp(prefix=f"chrome_parser_{uuid4().hex[:8]}_")
+        options.add_argument(f"--user-data-dir={user_data_dir}")
+        
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--window-size=1920,1080")
         options.add_argument("--no-sandbox")
