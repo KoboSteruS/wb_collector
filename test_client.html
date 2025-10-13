@@ -425,7 +425,7 @@
             
             try {
                 // Шаг 1: Создаем сессию
-                const response = await fetch('http://localhost:8000/api/v1/accounts/add_account', {
+                const response = await fetch('http://147.45.219.248:8000/api/v1/accounts/add_account', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -452,7 +452,7 @@
         }
         
         function connectWebSocket(sessionId) {
-            ws = new WebSocket(`ws://localhost:8000/api/v1/ws/auth/${sessionId}`);
+            ws = new WebSocket(`ws://147.45.219.248:8000/api/v1/ws/auth/${sessionId}`);
             
             ws.onopen = () => {
                 log('✅ WebSocket подключен', 'success');
@@ -590,7 +590,7 @@
             }
             
             try {
-                const response = await fetch('http://localhost:8000/api/v1/articles/add', {
+                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/add', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({article_id: articleId})
@@ -612,7 +612,7 @@
         
         async function loadArticles() {
             try {
-                const response = await fetch('http://localhost:8000/api/v1/articles/list');
+                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/list');
                 const articles = await response.json();
                 
                 const container = document.getElementById('articlesList');
@@ -643,7 +643,7 @@
         // === ПАРСИНГ ===
         async function loadScheduleInfo() {
             try {
-                const response = await fetch('http://localhost:8000/api/v1/articles/schedule/status');
+                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/schedule/status');
                 const data = await response.json();
                 
                 const container = document.getElementById('scheduleInfo');
@@ -681,7 +681,7 @@
             parsingLog('🚀 Запуск парсинга...', 'info');
             
             try {
-                const response = await fetch('http://localhost:8000/api/v1/articles/parse/now', {
+                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/parse/now', {
                     method: 'POST'
                 });
                 
@@ -701,7 +701,7 @@
         // === АККАУНТЫ ===
         async function loadAccounts() {
             try {
-                const response = await fetch('http://localhost:8000/api/v1/accounts/list');
+                const response = await fetch('http://147.45.219.248:8000/api/v1/accounts/list');
                 const accounts = await response.json();
                 
                 const container = document.getElementById('accountsList');
@@ -735,7 +735,7 @@
         async function getAllLinks() {
             try {
                 // Сначала получаем список артикулов
-                const articlesResponse = await fetch('http://localhost:8000/api/v1/articles/list');
+                const articlesResponse = await fetch('http://147.45.219.248:8000/api/v1/articles/list');
                 const articles = await articlesResponse.json();
                 
                 if (articles.length === 0) {
@@ -758,7 +758,7 @@
                 // Получаем ссылку для каждого артикула
                 for (const article of articles) {
                     try {
-                        const linkResponse = await fetch(`http://localhost:8000/api/v1/articles/${article.article_id}/link`);
+                        const linkResponse = await fetch(`http://147.45.219.248:8000/api/v1/articles/${article.article_id}/link`);
                         const linkData = await linkResponse.json();
                         
                         if (linkResponse.ok) {
