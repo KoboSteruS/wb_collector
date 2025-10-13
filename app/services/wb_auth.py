@@ -70,32 +70,26 @@ class WBAuthService:
         logger.debug("Запуск Chrome с headless режимом")
         
         try:
-            from selenium.webdriver.chrome.service import Service
-            import subprocess
-            import os
+            import undetected_chromedriver as uc
             
-            # Явно указываем пути к Chrome и ChromeDriver
-            chrome_binary = '/opt/google/chrome/chrome'  # РЕАЛЬНЫЙ БИНАРНИК
-            chromedriver_path = '/usr/bin/chromedriver'  # Путь к драйверу
+            logger.info("🚀 Запускаем Chrome через undetected-chromedriver")
             
-            opts.binary_location = chrome_binary
-            logger.info(f"🔍 Chrome binary: {chrome_binary}")
-            logger.info(f"🔍 ChromeDriver: {chromedriver_path}")
+            # Создаем опции для undetected_chromedriver
+            uc_options = uc.ChromeOptions()
             
-            # Проверяем существование файлов
-            if not os.path.exists(chrome_binary):
-                logger.error(f"❌ Chrome не найден: {chrome_binary}")
-                raise FileNotFoundError(f"Chrome binary not found: {chrome_binary}")
+            # Копируем все опции из opts
+            for arg in opts.arguments:
+                uc_options.add_argument(arg)
             
-            if not os.path.exists(chromedriver_path):
-                logger.warning(f"⚠️ ChromeDriver не найден по пути: {chromedriver_path}, используем системный")
-                service = Service()
-            else:
-                service = Service(executable_path=chromedriver_path)
+            # undetected_chromedriver автоматически найдет Chrome и скачает подходящий драйвер
+            driver = uc.Chrome(
+                options=uc_options,
+                headless=self.headless,
+                use_subprocess=True,
+                version_main=None  # Автоопределение версии
+            )
             
-            logger.info("🚀 Запускаем ChromeDriver")
-            driver = webdriver.Chrome(service=service, options=opts)
-            logger.info("✅ Chrome драйвер успешно запущен")
+            logger.info("✅ Chrome успешно запущен через undetected-chromedriver")
             return driver
         except Exception as e:
             logger.error(f"❌ Ошибка запуска Chrome: {e}")
