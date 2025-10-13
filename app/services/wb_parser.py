@@ -146,7 +146,7 @@ class WBParserService:
             # Открываем страницу товара
             product_url = f"https://www.wildberries.ru/catalog/{article_id}/detail.aspx"
             driver.get(product_url)
-            time.sleep(8)  # Ждем загрузки
+            time.sleep(3)  # Ждем загрузки (ускорено с 8 до 3 сек)
             
             # Собираем запросы
             result = None
