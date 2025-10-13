@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     DEBUG: bool = Field(default=False, description="Режим отладки")
     
     # Настройки сервера
-    HOST: str = Field(default="127.0.0.1", description="Хост для запуска сервера")
+    HOST: str = Field(default="0.0.0.0", description="Хост для запуска сервера")
     PORT: int = Field(default=8000, description="Порт для запуска сервера")
     
     # Настройки базы данных
