@@ -111,6 +111,25 @@ class WBParserService:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-default-apps")
         
+        # Ищем Chrome в разных местах
+        import os
+        chrome_paths = [
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
+            '/snap/bin/chromium'
+        ]
+        
+        chrome_binary = None
+        for path in chrome_paths:
+            if os.path.exists(path):
+                chrome_binary = path
+                logger.debug(f"Найден Chrome для парсинга: {path}")
+                break
+        
+        if chrome_binary:
+            options.binary_location = chrome_binary
+        
         logger.debug("Запуск Chrome для парсинга")
         driver = webdriver.Chrome(options=options)
         driver.scopes = ['.*u-card.wb.ru/cards/v4/detail.*']

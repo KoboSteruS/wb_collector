@@ -71,6 +71,26 @@ class WBAuthService:
         
         try:
             from selenium.webdriver.chrome.service import Service
+            import os
+            
+            # Ищем Chrome в разных местах
+            chrome_paths = [
+                '/usr/bin/google-chrome',
+                '/usr/bin/chromium',
+                '/usr/bin/chromium-browser',
+                '/snap/bin/chromium'
+            ]
+            
+            chrome_binary = None
+            for path in chrome_paths:
+                if os.path.exists(path):
+                    chrome_binary = path
+                    logger.debug(f"Найден Chrome: {path}")
+                    break
+            
+            if chrome_binary:
+                opts.binary_location = chrome_binary
+            
             service = Service()
             driver = webdriver.Chrome(service=service, options=opts)
             logger.info("✅ Chrome успешно запущен")
