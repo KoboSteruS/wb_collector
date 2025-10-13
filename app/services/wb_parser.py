@@ -111,38 +111,27 @@ class WBParserService:
         options.add_argument("--disable-extensions")
         options.add_argument("--disable-default-apps")
         
-        # Ищем Chrome через which
-        import subprocess
+        # Ищем реальный бинарник Chrome
         import os
         
-        chrome_paths_to_try = [
-            'google-chrome',
-            'google-chrome-stable',
-            'chromium',
-            'chromium-browser',
+        chrome_binary = None
+        direct_paths = [
+            '/opt/google/chrome/chrome',  # Настоящий бинарник Chrome
+            '/usr/bin/chromium',
+            '/usr/bin/chromium-browser',
             '/snap/bin/chromium'
         ]
         
-        chrome_binary = None
-        for cmd in chrome_paths_to_try:
-            try:
-                result = subprocess.run(['which', cmd], capture_output=True, text=True, timeout=5)
-                if result.returncode == 0:
-                    path = result.stdout.strip()
-                    if path and os.path.exists(path):
-                        # Разрешаем символические ссылки до реального файла
-                        real_path = os.path.realpath(path)
-                        if os.path.exists(real_path) and os.access(real_path, os.X_OK):
-                            chrome_binary = real_path
-                            logger.info(f"✅ Найден Chrome для парсинга: {path} -> {real_path}")
-                            break
-            except Exception:
-                continue
+        for path in direct_paths:
+            if os.path.exists(path) and os.access(path, os.X_OK):
+                chrome_binary = path
+                logger.info(f"✅ Найден Chrome для парсинга: {path}")
+                break
         
         if chrome_binary:
             options.binary_location = chrome_binary
         else:
-            logger.warning("⚠️ Chrome не найден для парсинга, используем по умолчанию")
+            logger.warning("⚠️ Chrome не найден для парсинга")
         
         logger.debug("Запуск Chrome для парсинга")
         driver = webdriver.Chrome(options=options)

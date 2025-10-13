@@ -74,36 +74,27 @@ class WBAuthService:
             import subprocess
             import os
             
-            # Пытаемся найти реальный путь к Chrome через which
-            chrome_paths_to_try = [
-                'google-chrome',
-                'google-chrome-stable', 
-                'chromium',
-                'chromium-browser',
+            # Специальная логика для Google Chrome - ищем реальный бинарник
+            chrome_binary = None
+            
+            # Сначала пробуем стандартные пути к реальному бинарнику
+            direct_paths = [
+                '/opt/google/chrome/chrome',  # Настоящий бинарник Chrome
+                '/usr/bin/chromium',
+                '/usr/bin/chromium-browser',
                 '/snap/bin/chromium'
             ]
             
-            chrome_binary = None
-            for cmd in chrome_paths_to_try:
-                try:
-                    result = subprocess.run(['which', cmd], capture_output=True, text=True, timeout=5)
-                    if result.returncode == 0:
-                        path = result.stdout.strip()
-                        if path and os.path.exists(path):
-                            # Разрешаем символические ссылки до реального файла
-                            real_path = os.path.realpath(path)
-                            if os.path.exists(real_path) and os.access(real_path, os.X_OK):
-                                chrome_binary = real_path
-                                logger.info(f"✅ Найден Chrome: {path} -> {real_path}")
-                                break
-                except Exception as e:
-                    logger.debug(f"Не удалось проверить {cmd}: {e}")
-                    continue
+            for path in direct_paths:
+                if os.path.exists(path) and os.access(path, os.X_OK):
+                    chrome_binary = path
+                    logger.info(f"✅ Найден Chrome бинарник: {path}")
+                    break
             
             if chrome_binary:
                 opts.binary_location = chrome_binary
             else:
-                logger.warning("⚠️ Chrome не найден автоматически, используем значение по умолчанию")
+                logger.warning("⚠️ Chrome не найден, используем значение по умолчанию")
             
             service = Service()
             driver = webdriver.Chrome(service=service, options=opts)
