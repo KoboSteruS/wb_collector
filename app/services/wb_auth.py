@@ -74,25 +74,15 @@ class WBAuthService:
             import subprocess
             import os
             
-            # ФИНАЛЬНОЕ РЕШЕНИЕ: создаем симлинк программно
-            import subprocess
-            chrome_binary = '/opt/google/chrome/chrome'
-            chrome_link = '/usr/bin/google-chrome'
+            # Явно указываем путь к Chrome
+            chrome_binary = '/usr/bin/google-chrome'
+            opts.binary_location = chrome_binary
+            logger.info(f"🔍 Chrome binary установлен: {chrome_binary}")
             
-            # Если симлинк не существует или указывает не туда - пересоздаем
-            if not os.path.exists(chrome_link) or os.path.realpath(chrome_link) != chrome_binary:
-                try:
-                    # Удаляем старый если есть
-                    if os.path.exists(chrome_link):
-                        os.remove(chrome_link)
-                    # Создаем новый симлинк
-                    os.symlink(chrome_binary, chrome_link)
-                    logger.info(f"✅ Создан симлинк: {chrome_link} -> {chrome_binary}")
-                except Exception as e:
-                    logger.warning(f"⚠️ Не удалось создать симлинк (нужен sudo): {e}")
-                    # Если не получилось - используем binary_location
-                    opts.binary_location = chrome_binary
-                    logger.info(f"Используем binary_location: {chrome_binary}")
+            # Проверяем что файл существует
+            if not os.path.exists(chrome_binary):
+                logger.error(f"❌ Chrome не найден по пути: {chrome_binary}")
+                raise FileNotFoundError(f"Chrome binary not found: {chrome_binary}")
             
             logger.info("🚀 Запускаем ChromeDriver")
             service = Service()
