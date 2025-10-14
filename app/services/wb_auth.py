@@ -62,7 +62,13 @@ class WBAuthService:
         opts.add_argument("--single-process")
         opts.add_argument("--window-size=1280,2400")
         
-        logger.debug("Запуск Chrome с headless режимом")
+        # Явно указываем user-data-dir с правами
+        import tempfile
+        import os
+        user_data_dir = tempfile.mkdtemp(prefix="chrome_auth_", dir="/tmp")
+        opts.add_argument(f"--user-data-dir={user_data_dir}")
+        
+        logger.debug(f"Запуск Chrome с headless режимом, user-data-dir: {user_data_dir}")
         
         try:
             from selenium.webdriver.chrome.service import Service
@@ -276,4 +282,11 @@ class WBAuthService:
             
         finally:
             driver.quit()
+            # Очищаем временную папку после завершения
+            try:
+                import shutil
+                shutil.rmtree(user_data_dir, ignore_errors=True)
+                logger.debug(f"Очищена временная папка: {user_data_dir}")
+            except:
+                pass
 
