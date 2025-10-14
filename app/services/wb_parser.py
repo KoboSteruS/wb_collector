@@ -145,6 +145,7 @@ class WBParserService:
             # Собираем цены с картой WB с HTML
             price_with_card = None
             card_discount_percent = None
+            old_price = None
             
             try:
                 # Цена с картой WB (красная)
@@ -158,6 +159,7 @@ class WBParserService:
             try:
                 # Пробуем разные селекторы для основной цены
                 base_price_selectors = [
+                    "ins.priceBlockFinalPrice--iToZR",  # Основная цена (442 ₽)
                     "ins.price-block__final-price",
                     ".price-block__final-price", 
                     ".price-block__final-price ins",
@@ -186,6 +188,16 @@ class WBParserService:
                     logger.debug(f"⚠️ Не удалось найти основную цену для расчета скидки")
             except Exception as e:
                 logger.debug(f"Ошибка поиска основной цены: {e}")
+            
+            # Пробуем найти старую зачеркнутую цену
+            try:
+                old_price_element = driver.find_element("css selector", "span.priceBlockOldPrice--qSWAf")
+                old_price_text = old_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                if old_price_text:
+                    old_price = int(old_price_text)
+                    logger.debug(f"📉 Старая цена: {old_price} ₽")
+            except Exception as e:
+                logger.debug(f"Старая цена не найдена: {e}")
             
             # Собираем запросы
             logger.debug(f"Перехвачено запросов: {len(driver.requests)}")
@@ -227,6 +239,8 @@ class WBParserService:
                             card_info = f" | 💳 {price_with_card}₽"
                             if card_discount_percent:
                                 card_info += f" (-{card_discount_percent}%)"
+                            if old_price:
+                                card_info += f" | 📉 Было: {old_price}₽"
                         
                         logger.success(
                             f"✅ {item.get('brand')} | "
