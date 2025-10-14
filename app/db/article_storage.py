@@ -130,6 +130,8 @@ class ArticleStorage:
                     dest=result_data["dest"],
                     price_basic=result_data["price_basic"],
                     price_product=result_data["price_product"],
+                    price_with_card=result_data.get("price_with_card"),
+                    card_discount_percent=result_data.get("card_discount_percent"),
                     qty=result_data["qty"],
                     uuid=UUID(result_data["uuid"])
                 )
