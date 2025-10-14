@@ -62,12 +62,17 @@ class WBAuthService:
         opts.add_argument("--single-process")
         opts.add_argument("--window-size=1280,2400")
         
-        # ✅ ВАЖНО: указываем стабильный user-data-dir (не /tmp)
-        # Chrome под root не может создавать временные профили в /tmp (sandbox защита)
-        # Поэтому используем постоянную папку с правильными правами
-        opts.add_argument("--user-data-dir=/root/.config/chrome_profile")
+        # ✅ ВАЖНО: создаем УНИКАЛЬНЫЙ профиль для каждого запуска
+        # Chrome под root имеет проблемы с переиспользованием профилей (битые симлинки)
+        from uuid import uuid4
         
-        logger.debug("Запуск Chrome с headless режимом, user-data-dir=/root/.config/chrome_profile")
+        # Создаем уникальную папку для каждой сессии
+        session_id = str(uuid4())[:8]
+        self._temp_user_data_dir = f"/tmp/chrome_profile_{session_id}"
+        
+        opts.add_argument(f"--user-data-dir={self._temp_user_data_dir}")
+        
+        logger.debug(f"Запуск Chrome с headless режимом, user-data-dir={self._temp_user_data_dir}")
         
         try:
             from selenium.webdriver.chrome.service import Service
@@ -284,8 +289,9 @@ class WBAuthService:
             # Очищаем временную папку после завершения
             try:
                 import shutil
-                shutil.rmtree(user_data_dir, ignore_errors=True)
-                logger.debug(f"Очищена временная папка: {user_data_dir}")
+                if hasattr(self, '_temp_user_data_dir'):
+                    shutil.rmtree(self._temp_user_data_dir, ignore_errors=True)
+                    logger.debug(f"Очищена временная папка: {self._temp_user_data_dir}")
             except:
                 pass
 
