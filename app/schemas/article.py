@@ -39,6 +39,8 @@ class LinkResponse(BaseModel):
     total_parses: int = Field(..., description="Количество парсингов")
     last_updated: Optional[str] = Field(None, description="Последнее обновление")
     stats: Optional[Dict[str, Any]] = Field(None, description="Дополнительная статистика")
+    avg_card_discount: Optional[float] = Field(None, description="Средняя скидка по карте WB (%)")
+    total_with_card_prices: Optional[int] = Field(None, description="Количество товаров с ценами по карте")
 
 
 class ParsingStatus(BaseModel):

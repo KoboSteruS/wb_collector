@@ -142,6 +142,32 @@ class WBParserService:
             driver.get(product_url)
             time.sleep(5)  # Ждем загрузки и API запросов
             
+            # Собираем цены с картой WB с HTML
+            price_with_card = None
+            card_discount_percent = None
+            
+            try:
+                # Цена с картой WB (красная)
+                card_price_element = driver.find_element("css selector", "span.priceBlockWalletPrice--RJGuT")
+                card_price_text = card_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                price_with_card = int(card_price_text)
+                logger.debug(f"💳 Цена с картой WB: {price_with_card} ₽")
+            except Exception as e:
+                logger.debug(f"Цена с картой WB не найдена: {e}")
+            
+            try:
+                # Основная цена для расчета скидки
+                base_price_element = driver.find_element("css selector", "ins.price-block__final-price")
+                base_price_text = base_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                base_price = int(base_price_text)
+                
+                # Вычисляем процент скидки по карте
+                if price_with_card and base_price and base_price > 0:
+                    card_discount_percent = round((1 - price_with_card / base_price) * 100, 1)
+                    logger.debug(f"📉 Скидка по карте WB: {card_discount_percent}%")
+            except Exception as e:
+                logger.debug(f"Основная цена не найдена: {e}")
+            
             # Собираем запросы
             logger.debug(f"Перехвачено запросов: {len(driver.requests)}")
             result = None
@@ -172,13 +198,21 @@ class WBParserService:
                             dest=dest,
                             price_basic=price_basic,
                             price_product=price_product,
+                            price_with_card=price_with_card,
+                            card_discount_percent=card_discount_percent,
                             qty=item.get("qty", 0)
                         )
+                        
+                        card_info = ""
+                        if price_with_card:
+                            card_info = f" | 💳 {price_with_card}₽"
+                            if card_discount_percent:
+                                card_info += f" (-{card_discount_percent}%)"
                         
                         logger.success(
                             f"✅ {item.get('brand')} | "
                             f"{price_product/100:.2f}₽ из {price_basic/100:.2f}₽ "
-                            f"(SPP {spp_real}%) | dest={dest} | qty={item.get('qty')}"
+                            f"(SPP {spp_real}%) | dest={dest} | qty={item.get('qty')}{card_info}"
                         )
                         break
             

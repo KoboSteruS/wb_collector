@@ -186,10 +186,11 @@ async def get_global_link() -> LinkResponse:
     
     all_spp = []
     all_dest = []
+    all_card_discounts = []
     total_articles = 0
     parsed_articles = 0
     
-    # Собираем все SPP и dest со всех артикулов
+    # Собираем все SPP, dest и скидки по карте со всех артикулов
     for article in articles:
         total_articles += 1
         results = article_storage.get_parsing_results(article.article_id)
@@ -199,6 +200,10 @@ async def get_global_link() -> LinkResponse:
             for result in results:
                 all_spp.append(result.spp)
                 all_dest.append(result.dest)
+                
+                # Добавляем скидку по карте если есть
+                if hasattr(result, 'card_discount_percent') and result.card_discount_percent is not None:
+                    all_card_discounts.append(result.card_discount_percent)
     
     if not all_spp or not all_dest:
         raise HTTPException(
@@ -221,9 +226,15 @@ async def get_global_link() -> LinkResponse:
         f"&nm={base_article_id}"
     )
     
+    # Вычисляем среднюю скидку по карте
+    avg_card_discount = None
+    if all_card_discounts:
+        avg_card_discount = round(sum(all_card_discounts) / len(all_card_discounts), 1)
+    
     logger.success(
         f"🌍 Глобальная ссылка: SPP={most_common_spp}, dest={most_common_dest} "
         f"(проанализировано {len(all_spp)} записей из {parsed_articles}/{total_articles} артикулов)"
+        f"{f', средняя скидка по карте: {avg_card_discount}%' if avg_card_discount else ''}"
     )
     
     return LinkResponse(
@@ -232,12 +243,15 @@ async def get_global_link() -> LinkResponse:
         most_common_dest=most_common_dest,
         generated_url=generated_url,
         total_parses=len(all_spp),
+        avg_card_discount=avg_card_discount,
+        total_with_card_prices=len(all_card_discounts),
         stats={
             "total_articles": total_articles,
             "parsed_articles": parsed_articles,
             "total_data_points": len(all_spp),
             "unique_spp_values": len(spp_counter),
-            "unique_dest_values": len(dest_counter)
+            "unique_dest_values": len(dest_counter),
+            "card_discounts_count": len(all_card_discounts)
         }
     )
 

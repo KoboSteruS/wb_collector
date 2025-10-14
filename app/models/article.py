@@ -63,6 +63,8 @@ class ParsingResult:
         dest: Dest значение
         price_basic: Базовая цена
         price_product: Цена со скидкой
+        price_with_card: Цена с картой WB
+        card_discount_percent: Процент скидки по карте WB
         qty: Остаток
         parsed_at: Время парсинга
     """
@@ -75,7 +77,9 @@ class ParsingResult:
         dest: str,
         price_basic: int,
         price_product: int,
-        qty: int,
+        price_with_card: Optional[int] = None,
+        card_discount_percent: Optional[float] = None,
+        qty: int = 0,
         uuid: Optional[UUID] = None,
         parsed_at: Optional[datetime] = None
     ):
@@ -87,6 +91,8 @@ class ParsingResult:
         self.dest = dest
         self.price_basic = price_basic
         self.price_product = price_product
+        self.price_with_card = price_with_card
+        self.card_discount_percent = card_discount_percent
         self.qty = qty
         self.parsed_at = parsed_at or datetime.utcnow()
     
@@ -100,6 +106,8 @@ class ParsingResult:
             "dest": self.dest,
             "price_basic": self.price_basic,
             "price_product": self.price_product,
+            "price_with_card": self.price_with_card,
+            "card_discount_percent": self.card_discount_percent,
             "qty": self.qty,
             "parsed_at": self.parsed_at.isoformat() if self.parsed_at else None
         }

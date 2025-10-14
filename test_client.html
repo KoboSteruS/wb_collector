@@ -756,6 +756,7 @@
                         <p><strong>Самый частый SPP:</strong> ${linkData.most_common_spp}%</p>
                         <p><strong>Самый частый dest:</strong> ${linkData.most_common_dest}</p>
                         <p><strong>Всего точек данных:</strong> ${linkData.total_parses}</p>
+                        ${linkData.avg_card_discount ? `<p><strong>💳 Средняя скидка по карте WB:</strong> ${linkData.avg_card_discount}%</p>` : ''}
                     </div>
                     
                     <div class="list-item" style="background: #e3f2fd; border-left-color: #2196f3;">
@@ -765,6 +766,7 @@
                         <p><strong>📊 Точек данных:</strong> ${linkData.stats.total_data_points}</p>
                         <p><strong>🔢 Уникальных SPP:</strong> ${linkData.stats.unique_spp_values}</p>
                         <p><strong>🎯 Уникальных dest:</strong> ${linkData.stats.unique_dest_values}</p>
+                        ${linkData.total_with_card_prices ? `<p><strong>💳 С ценами по карте:</strong> ${linkData.total_with_card_prices}</p>` : ''}
                     </div>
                     
                     <div class="list-item" style="background: #e8f5e9; border-left-color: #4caf50;">
