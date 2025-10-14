@@ -38,64 +38,48 @@ class WBAuthService:
     
     def _start_browser(self) -> webdriver.Chrome:
         """
-        Запуск браузера Chrome.
+        Запуск браузера Chrome через Xvfb (виртуальный дисплей).
         
         Returns:
             webdriver.Chrome: Экземпляр драйвера
         """
-        opts = Options()
-        opts.add_argument("--headless=new")
-        opts.add_argument("--no-sandbox")
-        opts.add_argument("--disable-gpu")
-        opts.add_argument("--disable-dev-shm-usage")
-        opts.add_argument("--disable-software-rasterizer")
-        opts.add_argument("--disable-extensions")
-        opts.add_argument("--disable-background-networking")
-        opts.add_argument("--disable-sync")
-        opts.add_argument("--metrics-recording-only")
-        opts.add_argument("--mute-audio")
-        opts.add_argument("--disable-blink-features=AutomationControlled")
-        opts.add_argument("--remote-debugging-port=9222")
-        opts.add_argument("--disable-features=VizDisplayCompositor")
-        opts.add_argument("--disable-features=NetworkService")
-        opts.add_argument("--no-zygote")
-        opts.add_argument("--single-process")
-        opts.add_argument("--window-size=1280,2400")
-        
-        # ✅ ВАЖНО: создаем УНИКАЛЬНЫЙ профиль для каждого запуска
-        # Chrome под root имеет проблемы с переиспользованием профилей (битые симлинки)
-        from uuid import uuid4
+        from pyvirtualdisplay import Display
+        from selenium.webdriver.chrome.service import Service
         import os
+        from uuid import uuid4
         
-        # Создаем уникальную папку для каждой сессии
+        # Запускаем виртуальный дисплей (замена headless mode)
+        self._display = Display(visible=0, size=(1920, 1080))
+        self._display.start()
+        logger.info("🖥️  Виртуальный дисплей запущен")
+        
+        opts = Options()
+        # БЕЗ --headless! Xvfb заменяет его
+        opts.add_argument("--no-sandbox")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--window-size=1920,1080")
+        
+        # Создаем уникальную папку для каждой сессии (теперь должно работать!)
         session_id = str(uuid4())[:8]
         self._temp_user_data_dir = f"/tmp/chrome_profile_{session_id}"
-        
-        # СОЗДАЕМ папку и подпапку Default ЗАРАНЕЕ с правами 777
-        try:
-            os.makedirs(self._temp_user_data_dir, mode=0o777, exist_ok=True)
-            default_dir = os.path.join(self._temp_user_data_dir, "Default")
-            os.makedirs(default_dir, mode=0o777, exist_ok=True)
-            logger.debug(f"Созданы папки: {self._temp_user_data_dir} и {default_dir}")
-        except Exception as e:
-            logger.error(f"Не удалось создать папки профиля: {e}")
-        
+        os.makedirs(self._temp_user_data_dir, mode=0o777, exist_ok=True)
         opts.add_argument(f"--user-data-dir={self._temp_user_data_dir}")
         
-        logger.debug(f"Запуск Chrome с headless режимом, user-data-dir={self._temp_user_data_dir}")
+        logger.debug(f"Запуск Chrome через Xvfb, user-data-dir={self._temp_user_data_dir}")
         
         try:
-            from selenium.webdriver.chrome.service import Service
+            logger.info("🚀 Запускаем Chrome через Selenium + Xvfb")
             
-            logger.info("🚀 Запускаем Chrome через Selenium")
-            
-            # Используем обычный Selenium с правильными путями
             service = Service(executable_path='/usr/bin/chromedriver')
             driver = webdriver.Chrome(service=service, options=opts)
             
-            logger.info("✅ Chrome успешно запущен")
+            logger.info("✅ Chrome успешно запущен через Xvfb!")
             return driver
         except Exception as e:
+            # Если не удалось запустить - останавливаем дисплей
+            if hasattr(self, '_display'):
+                self._display.stop()
             logger.error(f"❌ Ошибка запуска Chrome: {e}")
             raise
     
@@ -296,6 +280,15 @@ class WBAuthService:
             
         finally:
             driver.quit()
+            
+            # Останавливаем виртуальный дисплей
+            if hasattr(self, '_display'):
+                try:
+                    self._display.stop()
+                    logger.debug("Виртуальный дисплей остановлен")
+                except:
+                    pass
+            
             # Очищаем временную папку после завершения
             try:
                 import shutil
