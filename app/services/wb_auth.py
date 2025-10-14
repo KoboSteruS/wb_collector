@@ -38,48 +38,37 @@ class WBAuthService:
     
     def _start_browser(self) -> webdriver.Chrome:
         """
-        Запуск браузера Chrome через Xvfb (виртуальный дисплей).
+        Запуск браузера Chrome.
         
         Returns:
             webdriver.Chrome: Экземпляр драйвера
         """
-        from pyvirtualdisplay import Display
         from selenium.webdriver.chrome.service import Service
-        import os
-        from uuid import uuid4
-        
-        # Запускаем виртуальный дисплей (замена headless mode)
-        self._display = Display(visible=0, size=(1920, 1080))
-        self._display.start()
-        logger.info("🖥️  Виртуальный дисплей запущен")
         
         opts = Options()
-        # БЕЗ --headless! Xvfb заменяет его
+        
+        # ВАЖНО: указываем путь к Chrome бинарнику
+        opts.binary_location = "/opt/chrome/chrome"
+        
+        # Флаги для headless режима
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--headless=new")
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--window-size=1920,1080")
         
-        # Создаем уникальную папку для каждой сессии (теперь должно работать!)
-        session_id = str(uuid4())[:8]
-        self._temp_user_data_dir = f"/tmp/chrome_profile_{session_id}"
-        os.makedirs(self._temp_user_data_dir, mode=0o777, exist_ok=True)
-        opts.add_argument(f"--user-data-dir={self._temp_user_data_dir}")
-        
-        logger.debug(f"Запуск Chrome через Xvfb, user-data-dir={self._temp_user_data_dir}")
+        logger.debug("Запуск Chrome в headless режиме")
         
         try:
-            logger.info("🚀 Запускаем Chrome через Selenium + Xvfb")
+            logger.info("🚀 Запускаем Chrome через Selenium")
             
+            # Используем ПРАВИЛЬНЫЙ chromedriver (совместимый с версией Chrome)
             service = Service(executable_path='/usr/bin/chromedriver')
             driver = webdriver.Chrome(service=service, options=opts)
             
-            logger.info("✅ Chrome успешно запущен через Xvfb!")
+            logger.info("✅ Chrome успешно запущен!")
             return driver
         except Exception as e:
-            # Если не удалось запустить - останавливаем дисплей
-            if hasattr(self, '_display'):
-                self._display.stop()
             logger.error(f"❌ Ошибка запуска Chrome: {e}")
             raise
     
@@ -280,21 +269,4 @@ class WBAuthService:
             
         finally:
             driver.quit()
-            
-            # Останавливаем виртуальный дисплей
-            if hasattr(self, '_display'):
-                try:
-                    self._display.stop()
-                    logger.debug("Виртуальный дисплей остановлен")
-                except:
-                    pass
-            
-            # Очищаем временную папку после завершения
-            try:
-                import shutil
-                if hasattr(self, '_temp_user_data_dir'):
-                    shutil.rmtree(self._temp_user_data_dir, ignore_errors=True)
-                    logger.debug(f"Очищена временная папка: {self._temp_user_data_dir}")
-            except:
-                pass
 
