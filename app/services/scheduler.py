@@ -5,7 +5,7 @@
 """
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core import logger, settings
 from .wb_parser import wb_parser
@@ -25,21 +25,16 @@ class ParsingScheduler:
             logger.info("⚠️ Фоновый парсинг отключен в настройках")
             return
         
-        # Добавляем задачу парсинга
+        # Добавляем задачу парсинга - каждые 2 часа
         self.scheduler.add_job(
             self._run_parsing,
-            CronTrigger(
-                hour=settings.PARSING_SCHEDULE_HOUR,
-                minute=settings.PARSING_SCHEDULE_MINUTE
-            ),
+            IntervalTrigger(hours=2),
             id="wb_parsing",
             name="Парсинг WB артикулов",
             replace_existing=True
         )
         
-        logger.success(
-            f"📅 Парсинг запланирован на {settings.PARSING_SCHEDULE_HOUR:02d}:{settings.PARSING_SCHEDULE_MINUTE:02d} ежедневно"
-        )
+        logger.success("📅 Парсинг запланирован каждые 2 часа")
     
     async def _run_parsing(self) -> None:
         """Запуск парсинга"""
