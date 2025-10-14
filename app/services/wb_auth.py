@@ -44,69 +44,26 @@ class WBAuthService:
             webdriver.Chrome: Экземпляр драйвера
         """
         opts = Options()
-        if self.headless:
-            opts.add_argument("--headless=new")
-        
-        # Флаги для работы без GPU (Ubuntu сервер)
-        opts.add_argument("--disable-gpu")
-        opts.add_argument("--disable-software-rasterizer")
-        opts.add_argument("--disable-dev-shm-usage")
+        opts.binary_location = "/opt/google/chrome/chrome"
+        opts.add_argument("--headless=new")
         opts.add_argument("--no-sandbox")
-        opts.add_argument("--disable-setuid-sandbox")
-        
-        # Остальные флаги
-        opts.add_argument("--disable-blink-features=AutomationControlled")
-        opts.add_argument("--window-size=1280,2400")
-        opts.add_argument("--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-        
-        # Отключаем использование профиля - Chrome сам создаст временный
+        opts.add_argument("--disable-gpu")
+        opts.add_argument("--disable-dev-shm-usage")
+        opts.add_argument("--disable-software-rasterizer")
         opts.add_argument("--disable-extensions")
-        opts.add_argument("--disable-default-apps")
-        
-        # Дополнительные флаги для стабильности
-        opts.add_argument("--single-process")
-        opts.add_argument("--disable-features=VizDisplayCompositor")
-        
-        # Агрессивные флаги для решения DevToolsActivePort
-        opts.add_argument("--disable-dev-tools")
-        opts.add_argument("--disable-background-timer-throttling")
-        opts.add_argument("--disable-backgrounding-occluded-windows")
-        opts.add_argument("--disable-renderer-backgrounding")
-        opts.add_argument("--disable-field-trial-config")
-        opts.add_argument("--disable-back-forward-cache")
-        opts.add_argument("--disable-ipc-flooding-protection")
-        opts.add_argument("--disable-hang-monitor")
-        opts.add_argument("--disable-prompt-on-repost")
-        opts.add_argument("--disable-client-side-phishing-detection")
-        opts.add_argument("--disable-component-extensions-with-background-pages")
+        opts.add_argument("--disable-background-networking")
         opts.add_argument("--disable-sync")
-        opts.add_argument("--disable-translate")
-        opts.add_argument("--hide-scrollbars")
         opts.add_argument("--metrics-recording-only")
         opts.add_argument("--mute-audio")
-        opts.add_argument("--no-first-run")
-        opts.add_argument("--safebrowsing-disable-auto-update")
-        opts.add_argument("--disable-default-apps")
-        opts.add_argument("--disable-extensions")
-        opts.add_argument("--disable-component-update")
-        opts.add_argument("--disable-domain-reliability")
-        opts.add_argument("--disable-features=TranslateUI")
-        opts.add_argument("--disable-features=BlinkGenPropertyTrees")
-        opts.add_argument("--disable-logging")
-        opts.add_argument("--disable-gpu-logging")
-        opts.add_argument("--silent")
-        opts.add_argument("--log-level=3")
-        opts.add_argument("--disable-web-security")
-        opts.add_argument("--disable-features=VizDisplayCompositor,VizServiceDisplay")
-        opts.add_argument("--remote-debugging-port=0")
+        opts.add_argument("--disable-blink-features=AutomationControlled")
+        opts.add_argument("--remote-debugging-port=9222")
+        opts.add_argument("--disable-features=VizDisplayCompositor")
+        opts.add_argument("--disable-features=NetworkService")
+        opts.add_argument("--no-zygote")
+        opts.add_argument("--single-process")
+        opts.add_argument("--window-size=1280,2400")
         
-        # Создаем уникальный user-data-dir для каждого запуска
-        import tempfile
-        import os
-        user_data_dir = tempfile.mkdtemp(prefix=f"chrome_auth_{uuid4().hex[:8]}_")
-        opts.add_argument(f"--user-data-dir={user_data_dir}")
-        
-        logger.debug(f"Запуск Chrome с headless режимом, user-data-dir: {user_data_dir}")
+        logger.debug("Запуск Chrome с headless режимом")
         
         try:
             from selenium.webdriver.chrome.service import Service
@@ -121,13 +78,6 @@ class WBAuthService:
             return driver
         except Exception as e:
             logger.error(f"❌ Ошибка запуска Chrome: {e}")
-            # Очищаем временную папку при ошибке
-            try:
-                import shutil
-                shutil.rmtree(user_data_dir, ignore_errors=True)
-                logger.debug(f"Очищена временная папка: {user_data_dir}")
-            except:
-                pass
             raise
     
     def _safe_click(self, driver: webdriver.Chrome, elem) -> bool:
@@ -327,11 +277,4 @@ class WBAuthService:
             
         finally:
             driver.quit()
-            # Очищаем временную папку после завершения
-            try:
-                import shutil
-                shutil.rmtree(user_data_dir, ignore_errors=True)
-                logger.debug(f"Очищена временная папка: {user_data_dir}")
-            except:
-                pass
 
