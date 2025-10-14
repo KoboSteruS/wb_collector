@@ -156,17 +156,36 @@ class WBParserService:
                 logger.debug(f"Цена с картой WB не найдена: {e}")
             
             try:
-                # Основная цена для расчета скидки
-                base_price_element = driver.find_element("css selector", "ins.price-block__final-price")
-                base_price_text = base_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
-                base_price = int(base_price_text)
+                # Пробуем разные селекторы для основной цены
+                base_price_selectors = [
+                    "ins.price-block__final-price",
+                    ".price-block__final-price", 
+                    ".price-block__final-price ins",
+                    "span.price-block__final-price",
+                    ".final-price",
+                    "[data-link='text{:product^price}']"
+                ]
+                
+                base_price = None
+                for selector in base_price_selectors:
+                    try:
+                        base_price_element = driver.find_element("css selector", selector)
+                        base_price_text = base_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                        if base_price_text:
+                            base_price = int(base_price_text)
+                            logger.debug(f"📊 Основная цена найдена ({selector}): {base_price} ₽")
+                            break
+                    except:
+                        continue
                 
                 # Вычисляем процент скидки по карте
                 if price_with_card and base_price and base_price > 0:
                     card_discount_percent = round((1 - price_with_card / base_price) * 100, 1)
                     logger.debug(f"📉 Скидка по карте WB: {card_discount_percent}%")
+                elif price_with_card:
+                    logger.debug(f"⚠️ Не удалось найти основную цену для расчета скидки")
             except Exception as e:
-                logger.debug(f"Основная цена не найдена: {e}")
+                logger.debug(f"Ошибка поиска основной цены: {e}")
             
             # Собираем запросы
             logger.debug(f"Перехвачено запросов: {len(driver.requests)}")
