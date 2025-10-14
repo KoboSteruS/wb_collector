@@ -66,6 +66,13 @@ class WBAuthService:
         import tempfile
         import os
         user_data_dir = tempfile.mkdtemp(prefix="chrome_auth_", dir="/tmp")
+        
+        # Создаем подпапки для профиля Chrome
+        profile_dir = os.path.join(user_data_dir, "Default")
+        os.makedirs(profile_dir, exist_ok=True)
+        os.chmod(user_data_dir, 0o777)
+        os.chmod(profile_dir, 0o777)
+        
         opts.add_argument(f"--user-data-dir={user_data_dir}")
         
         logger.debug(f"Запуск Chrome с headless режимом, user-data-dir: {user_data_dir}")
