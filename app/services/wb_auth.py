@@ -44,7 +44,6 @@ class WBAuthService:
             webdriver.Chrome: Экземпляр драйвера
         """
         opts = Options()
-        opts.binary_location = "/opt/google/chrome/chrome"
         opts.add_argument("--headless=new")
         opts.add_argument("--no-sandbox")
         opts.add_argument("--disable-gpu")
