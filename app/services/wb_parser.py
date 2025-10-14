@@ -95,23 +95,20 @@ class WBParserService:
             Optional[ParsingResult]: Результат парсинга или None
         """
         options = Options()
+        
+        # ВАЖНО: указываем путь к Chrome бинарнику
+        options.binary_location = "/opt/chrome/chrome"
+        
+        # Флаги для headless режима
         if self.headless:
             options.add_argument("--headless=new")
         
-        # Флаги для работы без GPU (Ubuntu сервер)
-        options.add_argument("--disable-gpu")
-        options.add_argument("--disable-software-rasterizer")
-        options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--no-sandbox")
-        options.add_argument("--disable-setuid-sandbox")
-        
-        # Остальные флаги
+        options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--window-size=1920,1080")
-        options.add_argument("--disable-extensions")
-        options.add_argument("--disable-default-apps")
         
-        # Используем ChromeDriver без явного указания binary_location
+        # Используем ПРАВИЛЬНЫЙ chromedriver
         from selenium.webdriver.chrome.service import Service
         
         chromedriver_path = '/usr/bin/chromedriver'
