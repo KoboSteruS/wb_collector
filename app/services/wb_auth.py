@@ -65,10 +65,20 @@ class WBAuthService:
         # ✅ ВАЖНО: создаем УНИКАЛЬНЫЙ профиль для каждого запуска
         # Chrome под root имеет проблемы с переиспользованием профилей (битые симлинки)
         from uuid import uuid4
+        import os
         
         # Создаем уникальную папку для каждой сессии
         session_id = str(uuid4())[:8]
         self._temp_user_data_dir = f"/tmp/chrome_profile_{session_id}"
+        
+        # СОЗДАЕМ папку и подпапку Default ЗАРАНЕЕ с правами 777
+        try:
+            os.makedirs(self._temp_user_data_dir, mode=0o777, exist_ok=True)
+            default_dir = os.path.join(self._temp_user_data_dir, "Default")
+            os.makedirs(default_dir, mode=0o777, exist_ok=True)
+            logger.debug(f"Созданы папки: {self._temp_user_data_dir} и {default_dir}")
+        except Exception as e:
+            logger.error(f"Не удалось создать папки профиля: {e}")
         
         opts.add_argument(f"--user-data-dir={self._temp_user_data_dir}")
         
