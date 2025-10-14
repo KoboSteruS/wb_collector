@@ -62,20 +62,12 @@ class WBAuthService:
         opts.add_argument("--single-process")
         opts.add_argument("--window-size=1280,2400")
         
-        # Явно указываем user-data-dir с правами
-        import tempfile
-        import os
-        user_data_dir = tempfile.mkdtemp(prefix="chrome_auth_", dir="/tmp")
+        # ✅ ВАЖНО: указываем стабильный user-data-dir (не /tmp)
+        # Chrome под root не может создавать временные профили в /tmp (sandbox защита)
+        # Поэтому используем постоянную папку с правильными правами
+        opts.add_argument("--user-data-dir=/root/.config/chrome_profile")
         
-        # Создаем подпапки для профиля Chrome
-        profile_dir = os.path.join(user_data_dir, "Default")
-        os.makedirs(profile_dir, exist_ok=True)
-        os.chmod(user_data_dir, 0o777)
-        os.chmod(profile_dir, 0o777)
-        
-        opts.add_argument(f"--user-data-dir={user_data_dir}")
-        
-        logger.debug(f"Запуск Chrome с headless режимом, user-data-dir: {user_data_dir}")
+        logger.debug("Запуск Chrome с headless режимом, user-data-dir=/root/.config/chrome_profile")
         
         try:
             from selenium.webdriver.chrome.service import Service
