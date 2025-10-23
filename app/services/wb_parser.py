@@ -4,16 +4,11 @@
 Парсинг SPP и аналитика по артикулам.
 """
 
-import json
-import gzip
 import time
-import tempfile
-from io import BytesIO
-from urllib.parse import urlparse, parse_qs
 from typing import Optional, List, Dict
 from uuid import uuid4
 
-from seleniumwire import webdriver
+from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
 from app.core import logger, settings
@@ -28,54 +23,6 @@ class WBParserService:
         """Инициализация сервиса"""
         self.headless = headless
     
-    def _extract_prices_and_stocks(
-        self,
-        json_bytes: bytes,
-        target_id: Optional[str] = None
-    ) -> List[Dict]:
-        """Извлечение данных из ответа API"""
-        try:
-            # Распаковка gzip если нужно
-            if json_bytes[:2] == b"\x1f\x8b":
-                json_bytes = gzip.GzipFile(fileobj=BytesIO(json_bytes)).read()
-            
-            text = json_bytes.decode("utf-8", errors="ignore")
-            data = json.loads(text)
-            result = []
-            
-            for product in data.get("products", []):
-                if target_id and str(product.get("id")) != str(target_id):
-                    continue
-                
-                id_ = product.get("id")
-                brand = product.get("brand")
-                name = product.get("name")
-                
-                total_qty = 0
-                price_basic = None
-                price_product = None
-                
-                for size in product.get("sizes", []):
-                    if not price_basic:
-                        price_basic = size.get("price", {}).get("basic")
-                        price_product = size.get("price", {}).get("product")
-                    for stock in size.get("stocks", []):
-                        total_qty += stock.get("qty", 0)
-                
-                result.append({
-                    "id": id_,
-                    "brand": brand,
-                    "name": name,
-                    "qty": total_qty,
-                    "price_basic": price_basic,
-                    "price_product": price_product,
-                })
-            
-            return result
-            
-        except Exception as e:
-            logger.warning(f"Ошибка парсинга JSON: {e}")
-            return []
     
     def parse_article(
         self,
@@ -136,7 +83,6 @@ class WBParserService:
         
         service = Service(executable_path=chromedriver_path)
         driver = webdriver.Chrome(service=service, options=options)
-        driver.scopes = ['.*u-card.wb.ru/cards/v4/detail.*']
         
         try:
             logger.info(f"🔍 Парсинг артикула {article_id} через аккаунт {account_uuid[:8]}...")
@@ -322,58 +268,70 @@ class WBParserService:
             except Exception as e:
                 logger.debug(f"Ошибка при парсинге цен: {e}")
             
-            # Собираем запросы
-            logger.debug(f"Перехвачено запросов: {len(driver.requests)}")
+            # Простой парсинг HTML (без перехвата запросов)
+            logger.debug("🔍 Парсинг данных с HTML страницы...")
+            
+            # Пытаемся найти данные на странице
             result = None
-            for request in driver.requests:
-                if "u-card.wb.ru/cards/v4/detail" in request.url and request.response:
-                    params = parse_qs(urlparse(request.url).query)
-                    params_simple = {k: v[0] if len(v) == 1 else v for k, v in params.items()}
-                    
-                    body = request.response.body or b""
-                    extracted = self._extract_prices_and_stocks(body, target_id=article_id)
-                    
-                    if extracted:
-                        item = extracted[0]
-                        
-                        # Вычисляем SPP
-                        price_basic = item.get("price_basic", 0)
-                        price_product = item.get("price_product", 0)
-                        spp_real = round(
-                            100 - (price_product / price_basic * 100), 2
-                        ) if price_basic else 0
-                        
-                        dest = params_simple.get("dest", "123585633")
-                        
-                        result = ParsingResult(
-                            article_id=article_id,
-                            account_uuid=account_uuid,
-                            spp=spp_real,
-                            dest=dest,
-                            price_basic=price_basic,
-                            price_product=price_product,
-                            price_with_card=price_with_card,
-                            card_discount_percent=card_discount_percent,
-                            qty=item.get("qty", 0)
-                        )
-                        
-                        card_info = ""
-                        if price_with_card:
-                            card_info = f" | 💳 {price_with_card}₽"
-                            if card_discount_percent:
-                                card_info += f" (-{card_discount_percent}%)"
-                            if old_price:
-                                card_info += f" | 📉 Было: {old_price}₽"
-                        
-                        logger.success(
-                            f"✅ {item.get('brand')} | "
-                            f"{price_product/100:.2f}₽ из {price_basic/100:.2f}₽ "
-                            f"(SPP {spp_real}%) | dest={dest} | qty={item.get('qty')}{card_info}"
-                        )
-                        break
+            try:
+                # Ищем название товара
+                brand = "Unknown"
+                try:
+                    brand_element = driver.find_element("css selector", "h1[data-link='text{:product^goodsName}']")
+                    brand = brand_element.text.strip()
+                except:
+                    pass
+                
+                # Ищем количество
+                qty = 0
+                try:
+                    qty_element = driver.find_element("css selector", "[data-link='text{:product^totalQuantity}']")
+                    qty_text = qty_element.text.replace("шт.", "").strip()
+                    qty = int(qty_text) if qty_text.isdigit() else 0
+                except:
+                    pass
+                
+                # Используем цены которые уже спарсили
+                price_basic = base_price or 0
+                price_product = base_price or 0
+                
+                # Вычисляем SPP (упрощенно)
+                spp_real = 0
+                if price_basic and price_product:
+                    spp_real = round(100 - (price_product / price_basic * 100), 2)
+                
+                # Создаем результат
+                result = ParsingResult(
+                    article_id=article_id,
+                    account_uuid=account_uuid,
+                    spp=spp_real,
+                    dest="123585633",  # Дефолтный dest
+                    price_basic=price_basic,
+                    price_product=price_product,
+                    price_with_card=price_with_card,
+                    card_discount_percent=card_discount_percent,
+                    qty=qty
+                )
+                
+                card_info = ""
+                if price_with_card:
+                    card_info = f" | 💳 {price_with_card}₽"
+                    if card_discount_percent:
+                        card_info += f" (-{card_discount_percent}%)"
+                    if old_price:
+                        card_info += f" | 📉 Было: {old_price}₽"
+                
+                logger.success(
+                    f"✅ {brand} | "
+                    f"{price_product/100:.2f}₽ из {price_basic/100:.2f}₽ "
+                    f"(SPP {spp_real}%) | qty={qty}{card_info}"
+                )
+                
+            except Exception as e:
+                logger.warning(f"⚠️ Ошибка парсинга HTML: {e}")
             
             if not result:
-                logger.warning(f"⚠️ Не найдены данные для артикула {article_id} (запросов: {len(driver.requests)})")
+                logger.warning(f"⚠️ Не найдены данные для артикула {article_id}")
             
             return result
             

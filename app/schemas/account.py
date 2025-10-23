@@ -61,6 +61,8 @@ class AccountResponse(BaseModel):
     has_cookies: bool = Field(..., description="Наличие сохраненных cookies")
     created_at: Optional[str] = Field(None, description="Дата создания")
     updated_at: Optional[str] = Field(None, description="Дата обновления")
+    proxy_uuid: Optional[str] = Field(None, description="UUID привязанного прокси")
+    proxy_name: Optional[str] = Field(None, description="Название привязанного прокси")
 
 
 class LoginStatus(BaseModel):

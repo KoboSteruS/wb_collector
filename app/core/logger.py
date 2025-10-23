@@ -43,7 +43,7 @@ def setup_logger() -> None:
         enqueue=True,  # Асинхронная запись
     )
     
-    logger.success(f"✅ Логирование настроено. Уровень: {settings.LOG_LEVEL}")
+    logger.success(f"Логирование настроено. Уровень: {settings.LOG_LEVEL}")
 
 
 # Инициализируем логгер при импорте модуля

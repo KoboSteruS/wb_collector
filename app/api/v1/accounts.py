@@ -78,17 +78,32 @@ async def list_accounts() -> List[AccountResponse]:
     
     accounts = account_storage.get_all_accounts()
     
-    return [
-        AccountResponse(
+    # Загружаем информацию о прокси
+    from app.db.proxy_storage import ProxyStorage
+    proxy_storage = ProxyStorage()
+    
+    result = []
+    for acc in accounts:
+        proxy_uuid = getattr(acc, 'proxy_uuid', None)
+        proxy_name = None
+        
+        if proxy_uuid:
+            proxy = proxy_storage.get_proxy(proxy_uuid)
+            if proxy:
+                proxy_name = proxy.get('name')
+        
+        result.append(AccountResponse(
             uuid=str(acc.uuid),
             name=acc.name,
             phone=acc.phone,
             has_cookies=acc.cookies is not None,
             created_at=acc.created_at.isoformat() if acc.created_at else None,
-            updated_at=acc.updated_at.isoformat() if acc.updated_at else None
-        )
-        for acc in accounts
-    ]
+            updated_at=acc.updated_at.isoformat() if acc.updated_at else None,
+            proxy_uuid=proxy_uuid,
+            proxy_name=proxy_name
+        ))
+    
+    return result
 
 
 @router.get("/{account_uuid}", response_model=AccountResponse)
@@ -115,12 +130,128 @@ async def get_account(account_uuid: str) -> AccountResponse:
             detail="Аккаунт не найден"
         )
     
+    # Загружаем информацию о прокси
+    from app.db.proxy_storage import ProxyStorage
+    proxy_storage = ProxyStorage()
+    
+    proxy_uuid = getattr(account, 'proxy_uuid', None)
+    proxy_name = None
+    
+    if proxy_uuid:
+        proxy = proxy_storage.get_proxy(proxy_uuid)
+        if proxy:
+            proxy_name = proxy.get('name')
+    
     return AccountResponse(
         uuid=str(account.uuid),
         name=account.name,
         phone=account.phone,
         has_cookies=account.cookies is not None,
         created_at=account.created_at.isoformat() if account.created_at else None,
-        updated_at=account.updated_at.isoformat() if account.updated_at else None
+        updated_at=account.updated_at.isoformat() if account.updated_at else None,
+        proxy_uuid=proxy_uuid,
+        proxy_name=proxy_name
     )
+
+
+@router.put("/update/{account_uuid}")
+async def update_account(account_uuid: str, account_data: dict) -> dict:
+    """
+    Обновление данных аккаунта
+    
+    Args:
+        account_uuid: UUID аккаунта
+        account_data: Новые данные аккаунта
+        
+    Returns:
+        Результат обновления
+    """
+    try:
+        logger.info(f"Обновление аккаунта: {account_uuid}")
+        
+        # Проверяем существование аккаунта
+        account = account_storage.get_account(account_uuid)
+        if not account:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Аккаунт с UUID {account_uuid} не найден"
+            )
+        
+        # Обновляем данные
+        success = account_storage.update_account(
+            account_uuid=account_uuid,
+            name=account_data.get('name'),
+            phone=account_data.get('phone'),
+            proxy_uuid=account_data.get('proxy_uuid')
+        )
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Не удалось обновить аккаунт"
+            )
+        
+        logger.success(f"Аккаунт {account_uuid} обновлен")
+        
+        return {
+            "success": True,
+            "message": f"Аккаунт {account_uuid} успешно обновлен"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка обновления аккаунта {account_uuid}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка обновления аккаунта: {str(e)}"
+        )
+
+
+@router.delete("/delete/{account_uuid}")
+async def delete_account(account_uuid: str) -> dict:
+    """
+    Удаление аккаунта
+    
+    Args:
+        account_uuid: UUID аккаунта
+        
+    Returns:
+        Результат удаления
+    """
+    try:
+        logger.info(f"Удаление аккаунта: {account_uuid}")
+        
+        # Проверяем существование аккаунта
+        account = account_storage.get_account(account_uuid)
+        if not account:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Аккаунт с UUID {account_uuid} не найден"
+            )
+        
+        # Удаляем аккаунт
+        success = account_storage.delete_account(account_uuid)
+        
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Не удалось удалить аккаунт"
+            )
+        
+        logger.success(f"Аккаунт {account_uuid} удален")
+        
+        return {
+            "success": True,
+            "message": f"Аккаунт {account_uuid} успешно удален"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Ошибка удаления аккаунта {account_uuid}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Ошибка удаления аккаунта: {str(e)}"
+        )
 

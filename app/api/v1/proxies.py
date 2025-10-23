@@ -8,7 +8,7 @@ from loguru import logger
 
 from app.db.proxy_storage import ProxyStorage
 
-router = APIRouter(prefix="/api/v1/proxies", tags=["proxies"])
+router = APIRouter(prefix="/proxies", tags=["proxies"])
 
 # Инициализация хранилища прокси
 proxy_storage = ProxyStorage()
@@ -92,7 +92,7 @@ async def list_proxies():
         Список прокси
     """
     try:
-        logger.debug("📋 Запрос списка прокси")
+        logger.debug("Запрос списка прокси")
         
         proxies = proxy_storage.get_all_proxies()
         
@@ -108,7 +108,7 @@ async def list_proxies():
                 status=proxy.get('status', 'unknown')
             ))
         
-        logger.debug(f"📋 Возвращено {len(response_proxies)} прокси")
+        logger.debug(f"Возвращено {len(response_proxies)} прокси")
         return response_proxies
         
     except Exception as e:
@@ -208,7 +208,7 @@ async def get_available_proxies():
         Список доступных прокси
     """
     try:
-        logger.debug("📋 Запрос доступных прокси")
+        logger.debug("Запрос доступных прокси")
         
         available_proxies = proxy_storage.get_available_proxies()
         
@@ -224,7 +224,7 @@ async def get_available_proxies():
                 status=proxy.get('status', 'active')
             ))
         
-        logger.debug(f"📋 Возвращено {len(response_proxies)} доступных прокси")
+        logger.debug(f"Возвращено {len(response_proxies)} доступных прокси")
         return response_proxies
         
     except Exception as e:

@@ -28,7 +28,7 @@ class ProxyStorage:
         if not os.path.exists(self.proxies_file):
             with open(self.proxies_file, 'w', encoding='utf-8') as f:
                 json.dump({}, f, ensure_ascii=False, indent=2)
-            logger.debug(f"📄 Создан файл прокси: {self.proxies_file}")
+            logger.debug(f"Создан файл прокси: {self.proxies_file}")
     
     def add_proxy(self, name: str, host: str, port: int, username: Optional[str] = None, password: Optional[str] = None) -> str:
         """

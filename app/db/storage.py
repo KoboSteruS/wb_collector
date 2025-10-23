@@ -178,6 +178,86 @@ class AccountStorage:
         except Exception as e:
             logger.error(f"Ошибка получения списка аккаунтов: {e}")
             return []
+    
+    def update_account(
+        self, 
+        account_uuid: str, 
+        name: Optional[str] = None, 
+        phone: Optional[str] = None,
+        proxy_uuid: Optional[str] = None
+    ) -> bool:
+        """
+        Обновление данных аккаунта.
+        
+        Args:
+            account_uuid: UUID аккаунта
+            name: Новое название (опционально)
+            phone: Новый телефон (опционально)
+            proxy_uuid: UUID прокси (опционально)
+            
+        Returns:
+            bool: Успешность обновления
+        """
+        try:
+            data = self._load_data()
+            account_data = data.get(account_uuid)
+            
+            if not account_data:
+                logger.warning(f"Аккаунт {account_uuid} не найден для обновления")
+                return False
+            
+            # Обновляем только переданные поля
+            if name is not None:
+                account_data['name'] = name
+            if phone is not None:
+                account_data['phone'] = phone
+            if proxy_uuid is not None:
+                account_data['proxy_uuid'] = proxy_uuid
+            elif proxy_uuid is None and 'proxy_uuid' in account_data:
+                # Удаляем прокси если передано None
+                del account_data['proxy_uuid']
+            
+            # Обновляем время изменения
+            from datetime import datetime
+            account_data['updated_at'] = datetime.now().isoformat()
+            
+            data[account_uuid] = account_data
+            self._save_data(data)
+            
+            logger.success(f"Аккаунт {account_uuid} обновлен")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Ошибка обновления аккаунта {account_uuid}: {e}")
+            return False
+    
+    def delete_account(self, account_uuid: str) -> bool:
+        """
+        Удаление аккаунта.
+        
+        Args:
+            account_uuid: UUID аккаунта
+            
+        Returns:
+            bool: Успешность удаления
+        """
+        try:
+            data = self._load_data()
+            
+            if account_uuid not in data:
+                logger.warning(f"Аккаунт {account_uuid} не найден для удаления")
+                return False
+            
+            account_name = data[account_uuid].get('name', 'Unknown')
+            del data[account_uuid]
+            self._save_data(data)
+            
+            logger.success(f"Аккаунт '{account_name}' ({account_uuid}) удален")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Ошибка удаления аккаунта {account_uuid}: {e}")
+            return False
 
 
 # Глобальный экземпляр хранилища

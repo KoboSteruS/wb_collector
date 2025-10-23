@@ -283,6 +283,46 @@
         .empty-state h3 {
             margin-bottom: 10px;
         }
+        
+        /* Модальное окно */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 80%;
+            max-width: 500px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .close {
+            color: #aaa;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #000;
+        }
     </style>
 </head>
 <body>
@@ -422,10 +462,47 @@
             <div id="allLinksResult"></div>
         </div>
     </div>
+    
+    <!-- Модальное окно для редактирования аккаунта -->
+    <div id="editAccountModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>✏️ Редактировать аккаунт</h2>
+                <span class="close" onclick="closeEditModal()">&times;</span>
+            </div>
+            
+            <div class="form-group">
+                <label for="editAccountName">Название аккаунта:</label>
+                <input type="text" id="editAccountName" placeholder="Название аккаунта">
+            </div>
+            
+            <div class="form-group">
+                <label for="editAccountPhone">Номер телефона (без +7):</label>
+                <input type="text" id="editAccountPhone" placeholder="9164832422" maxlength="10">
+            </div>
+            
+            <div class="form-group">
+                <label for="editAccountProxy">Прокси:</label>
+                <select id="editAccountProxy">
+                    <option value="">Без прокси</option>
+                </select>
+            </div>
+            
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button onclick="saveAccountChanges()" style="background: #4caf50; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; flex: 1;">
+                    💾 Сохранить изменения
+                </button>
+                <button onclick="closeEditModal()" style="background: #666; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer;">
+                    ❌ Отмена
+                </button>
+            </div>
+        </div>
+    </div>
 
     <script>
         let ws = null;
         let sessionId = null;
+        let currentEditAccountUuid = null;
         
         function log(message, type = 'info') {
             const logsDiv = document.getElementById('logs');
@@ -757,11 +834,26 @@
                 
                 container.innerHTML = accounts.map(account => `
                     <div class="list-item">
-                        <h3>👤 ${account.name} ${account.has_cookies ? '<span class="badge badge-success">✅ Активен</span>' : '<span class="badge badge-warning">⚠️ Нет cookies</span>'}</h3>
-                        <p><strong>Телефон:</strong> ${account.phone}</p>
-                        <p><strong>UUID:</strong> ${account.uuid}</p>
-                        <p><strong>Создан:</strong> ${new Date(account.created_at).toLocaleString()}</p>
-                        ${account.updated_at ? `<p><strong>Обновлен:</strong> ${new Date(account.updated_at).toLocaleString()}</p>` : ''}
+                        <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <h3>👤 ${account.name} ${account.has_cookies ? '<span class="badge badge-success">✅ Активен</span>' : '<span class="badge badge-warning">⚠️ Нет cookies</span>'}</h3>
+                                <p><strong>Телефон:</strong> ${account.phone}</p>
+                                <p><strong>UUID:</strong> ${account.uuid}</p>
+                                <p><strong>Создан:</strong> ${new Date(account.created_at).toLocaleString()}</p>
+                                ${account.updated_at ? `<p><strong>Обновлен:</strong> ${new Date(account.updated_at).toLocaleString()}</p>` : ''}
+                                ${account.proxy_name ? `<p><strong>🌐 Прокси:</strong> ${account.proxy_name}</p>` : '<p><strong>🌐 Прокси:</strong> <span style="color: #999;">Не назначен</span></p>'}
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-left: 20px;">
+                                <button onclick="editAccount('${account.uuid}')" 
+                                        style="background: #2196f3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                                    ✏️ Редактировать
+                                </button>
+                                <button onclick="deleteAccount('${account.uuid}')" 
+                                        style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                                    🗑️ Удалить
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 `).join('');
                 
@@ -946,6 +1038,133 @@
                 }
             } catch (error) {
                 alert(`❌ Ошибка: ${error.message}`);
+            }
+        }
+        
+        // === РЕДАКТИРОВАНИЕ АККАУНТОВ ===
+        async function editAccount(accountUuid) {
+            try {
+                currentEditAccountUuid = accountUuid;
+                
+                // Загружаем данные аккаунта
+                const response = await fetch(`http://147.45.219.248:8000/api/v1/accounts/${accountUuid}`);
+                const account = await response.json();
+                
+                if (!response.ok) {
+                    alert(`Ошибка загрузки аккаунта: ${account.detail}`);
+                    return;
+                }
+                
+                // Заполняем форму
+                document.getElementById('editAccountName').value = account.name;
+                document.getElementById('editAccountPhone').value = account.phone;
+                
+                // Загружаем список прокси
+                await loadProxiesForEdit();
+                
+                // Устанавливаем текущий прокси
+                document.getElementById('editAccountProxy').value = account.proxy_uuid || '';
+                
+                // Показываем модальное окно
+                document.getElementById('editAccountModal').style.display = 'block';
+                
+            } catch (error) {
+                alert(`Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function loadProxiesForEdit() {
+            try {
+                const response = await fetch('http://147.45.219.248:8000/api/v1/proxies/list');
+                const proxies = await response.json();
+                
+                const select = document.getElementById('editAccountProxy');
+                select.innerHTML = '<option value="">Без прокси</option>';
+                
+                proxies.forEach(proxy => {
+                    const option = document.createElement('option');
+                    option.value = proxy.uuid;
+                    option.textContent = `${proxy.name} (${proxy.host}:${proxy.port})`;
+                    select.appendChild(option);
+                });
+                
+            } catch (error) {
+                console.error('Ошибка загрузки прокси:', error);
+            }
+        }
+        
+        async function saveAccountChanges() {
+            const name = document.getElementById('editAccountName').value.trim();
+            const phone = document.getElementById('editAccountPhone').value.trim();
+            const proxyUuid = document.getElementById('editAccountProxy').value;
+            
+            if (!name || !phone) {
+                alert('Заполните все обязательные поля!');
+                return;
+            }
+            
+            if (phone.length !== 10 || !/^\d+$/.test(phone)) {
+                alert('Номер должен содержать ровно 10 цифр!');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`http://147.45.219.248:8000/api/v1/accounts/update/${currentEditAccountUuid}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        phone: phone,
+                        proxy_uuid: proxyUuid || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert('✅ Аккаунт обновлен!');
+                    closeEditModal();
+                    loadAccounts(); // Обновляем список
+                } else {
+                    alert(`❌ Ошибка: ${data.detail || 'Не удалось обновить аккаунт'}`);
+                }
+            } catch (error) {
+                alert(`❌ Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function deleteAccount(accountUuid) {
+            if (!confirm('Удалить этот аккаунт? Это действие нельзя отменить!')) return;
+            
+            try {
+                const response = await fetch(`http://147.45.219.248:8000/api/v1/accounts/delete/${accountUuid}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('✅ Аккаунт удален!');
+                    loadAccounts(); // Обновляем список
+                } else {
+                    const data = await response.json();
+                    alert(`❌ Ошибка: ${data.detail || 'Не удалось удалить аккаунт'}`);
+                }
+            } catch (error) {
+                alert(`❌ Ошибка: ${error.message}`);
+            }
+        }
+        
+        function closeEditModal() {
+            document.getElementById('editAccountModal').style.display = 'none';
+            currentEditAccountUuid = null;
+        }
+        
+        // Закрытие модального окна по клику вне его
+        window.onclick = function(event) {
+            const modal = document.getElementById('editAccountModal');
+            if (event.target === modal) {
+                closeEditModal();
             }
         }
     </script>
