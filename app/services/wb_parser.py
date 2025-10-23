@@ -81,7 +81,8 @@ class WBParserService:
         self,
         article_id: str,
         account_uuid: str,
-        cookies: str
+        cookies: str,
+        proxy_data: Optional[dict] = None
     ) -> Optional[ParsingResult]:
         """
         Парсинг одного артикула с использованием cookies аккаунта.
@@ -107,6 +108,25 @@ class WBParserService:
         options.add_argument("--disable-dev-shm-usage")
         options.add_argument("--disable-blink-features=AutomationControlled")
         options.add_argument("--window-size=1920,1080")
+        
+        # Настройка прокси если передан
+        if proxy_data:
+            proxy_host = proxy_data.get('host')
+            proxy_port = proxy_data.get('port')
+            proxy_username = proxy_data.get('username')
+            proxy_password = proxy_data.get('password')
+            
+            if proxy_host and proxy_port:
+                # Формируем строку прокси
+                if proxy_username and proxy_password:
+                    proxy_string = f"{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
+                else:
+                    proxy_string = f"{proxy_host}:{proxy_port}"
+                
+                options.add_argument(f"--proxy-server=http://{proxy_string}")
+                logger.info(f"🌐 Используем прокси для парсинга: {proxy_host}:{proxy_port}")
+            else:
+                logger.warning("⚠️ Неполные данные прокси, парсим без прокси")
         
         # Используем ПРАВИЛЬНЫЙ chromedriver
         from selenium.webdriver.chrome.service import Service
@@ -139,62 +159,168 @@ class WBParserService:
             driver.get(product_url)
             time.sleep(5)  # Ждем загрузки и API запросов
             
-            # Собираем цены с картой WB с HTML
+            # Собираем цены из попапа "Детализация цены"
             price_with_card = None
             card_discount_percent = None
             old_price = None
+            base_price = None
             
             try:
-                # Цена с картой WB (красная)
-                card_price_element = driver.find_element("css selector", "span.priceBlockWalletPrice--RJGuT")
-                card_price_text = card_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
-                price_with_card = int(card_price_text)
-                logger.debug(f"💳 Цена с картой WB: {price_with_card} ₽")
-            except Exception as e:
-                logger.debug(f"Цена с картой WB не найдена: {e}")
-            
-            try:
-                # Пробуем разные селекторы для основной цены
-                base_price_selectors = [
-                    "ins.priceBlockFinalPrice--iToZR",  # Основная цена (442 ₽)
-                    "ins.price-block__final-price",
-                    ".price-block__final-price", 
-                    ".price-block__final-price ins",
-                    "span.price-block__final-price",
-                    ".final-price",
-                    "[data-link='text{:product^price}']"
+                # 1. Пытаемся открыть попап "Детализация цены"
+                logger.debug("🔍 Ищем кнопку для открытия попапа Детализация цены...")
+                
+                popup_selectors = [
+                    "button[data-link='text{:product^price}']",  # Кнопка цены
+                    ".price-block__final-price",  # Клик по цене
+                    "ins.priceBlockFinalPrice--iToZR",  # Основная цена
+                    ".price-block",  # Блок с ценой
+                    "[data-link*='price']",  # Любой элемент с price в data-link
+                    "button[aria-label*='цена']",  # Кнопка с aria-label
+                    ".price-block__final-price ins"  # Инс с ценой
                 ]
                 
-                base_price = None
-                for selector in base_price_selectors:
+                popup_opened = False
+                for selector in popup_selectors:
                     try:
-                        base_price_element = driver.find_element("css selector", selector)
-                        base_price_text = base_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
-                        if base_price_text:
-                            base_price = int(base_price_text)
-                            logger.debug(f"📊 Основная цена найдена ({selector}): {base_price} ₽")
+                        element = driver.find_element("css selector", selector)
+                        driver.execute_script("arguments[0].click();", element)
+                        time.sleep(2)  # Ждем появления попапа
+                        
+                        # Проверяем, появился ли попап
+                        popup_check = driver.find_elements("css selector", "[class*='popup'], [class*='modal'], [class*='details']")
+                        if popup_check:
+                            logger.debug(f"✅ Попап открыт через селектор: {selector}")
+                            popup_opened = True
                             break
                     except:
                         continue
                 
-                # Вычисляем процент скидки по карте
-                if price_with_card and base_price and base_price > 0:
-                    card_discount_percent = round((1 - price_with_card / base_price) * 100, 1)
-                    logger.debug(f"📉 Скидка по карте WB: {card_discount_percent}%")
-                elif price_with_card:
-                    logger.debug(f"⚠️ Не удалось найти основную цену для расчета скидки")
+                if not popup_opened:
+                    logger.debug("⚠️ Попап не открылся, пробуем парсить без него")
+                
+                # 2. Парсим цены из попапа или с основной страницы
+                time.sleep(1)  # Дополнительная пауза для загрузки
+                
+                # Ищем цену "с WB Кошельком" (розовая)
+                wb_wallet_selectors = [
+                    "[class*='wallet'][class*='price']",  # Элементы с wallet и price
+                    "[class*='WB'][class*='price']",  # Элементы с WB и price
+                    "span[class*='wallet']",  # Span с wallet
+                    ".price-details [class*='wallet']",  # В блоке price-details
+                    "[data-testid*='wallet']",  # По data-testid
+                    "div[class*='pink'], div[class*='red']"  # Розовые/красные блоки
+                ]
+                
+                for selector in wb_wallet_selectors:
+                    try:
+                        elements = driver.find_elements("css selector", selector)
+                        for element in elements:
+                            text = element.text.strip()
+                            if "₽" in text and any(char.isdigit() for char in text):
+                                price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                if price_text.isdigit():
+                                    price_with_card = int(price_text)
+                                    logger.debug(f"💳 Цена с WB Кошельком найдена: {price_with_card} ₽")
+                                    break
+                        if price_with_card:
+                            break
+                    except:
+                        continue
+                
+                # Ищем цену "без WB Кошелька" (серая)
+                regular_price_selectors = [
+                    "[class*='regular'][class*='price']",  # Обычная цена
+                    "[class*='without'][class*='wallet']",  # Без кошелька
+                    ".price-details [class*='without']",  # В блоке price-details
+                    "div[class*='gray'], div[class*='white']"  # Серые/белые блоки
+                ]
+                
+                for selector in regular_price_selectors:
+                    try:
+                        elements = driver.find_elements("css selector", selector)
+                        for element in elements:
+                            text = element.text.strip()
+                            if "₽" in text and any(char.isdigit() for char in text):
+                                price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                if price_text.isdigit():
+                                    base_price = int(price_text)
+                                    logger.debug(f"📊 Обычная цена найдена: {base_price} ₽")
+                                    break
+                        if base_price:
+                            break
+                    except:
+                        continue
+                
+                # Если не нашли в попапе, пробуем старые селекторы
+                if not price_with_card or not base_price:
+                    logger.debug("🔄 Пробуем старые селекторы...")
+                    
+                    # Старые селекторы для цены с картой
+                    old_card_selectors = [
+                        "span.priceBlockWalletPrice--RJGuT",
+                        "[class*='wallet'][class*='price']",
+                        "span[class*='wallet']"
+                    ]
+                    
+                    for selector in old_card_selectors:
+                        try:
+                            element = driver.find_element("css selector", selector)
+                            text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                            if text.isdigit():
+                                price_with_card = int(text)
+                                logger.debug(f"💳 Цена с картой (старый селектор): {price_with_card} ₽")
+                                break
+                        except:
+                            continue
+                    
+                    # Старые селекторы для основной цены
+                    old_base_selectors = [
+                        "ins.priceBlockFinalPrice--iToZR",
+                        "ins.price-block__final-price",
+                        ".price-block__final-price",
+                        "span.price-block__final-price"
+                    ]
+                    
+                    for selector in old_base_selectors:
+                        try:
+                            element = driver.find_element("css selector", selector)
+                            text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                            if text.isdigit():
+                                base_price = int(text)
+                                logger.debug(f"📊 Основная цена (старый селектор): {base_price} ₽")
+                                break
+                        except:
+                            continue
+                
+                # Вычисляем скидку по карте
+                if base_price and price_with_card and base_price > price_with_card:
+                    card_discount_percent = round(
+                        ((base_price - price_with_card) / base_price * 100), 2
+                    )
+                    logger.debug(f"💳 Скидка по карте WB: {card_discount_percent}%")
+                
+                # Ищем старую цену (зачеркнутую)
+                old_price_selectors = [
+                    "span.priceBlockOldPrice--qSWAf",
+                    "span[class*='old']",
+                    "del",
+                    "s",
+                    "[class*='old'][class*='price']"
+                ]
+                
+                for selector in old_price_selectors:
+                    try:
+                        element = driver.find_element("css selector", selector)
+                        text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                        if text.isdigit():
+                            old_price = int(text)
+                            logger.debug(f"📉 Старая цена: {old_price} ₽")
+                            break
+                    except:
+                        continue
+                        
             except Exception as e:
-                logger.debug(f"Ошибка поиска основной цены: {e}")
-            
-            # Пробуем найти старую зачеркнутую цену
-            try:
-                old_price_element = driver.find_element("css selector", "span.priceBlockOldPrice--qSWAf")
-                old_price_text = old_price_element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
-                if old_price_text:
-                    old_price = int(old_price_text)
-                    logger.debug(f"📉 Старая цена: {old_price} ₽")
-            except Exception as e:
-                logger.debug(f"Старая цена не найдена: {e}")
+                logger.debug(f"Ошибка при парсинге цен: {e}")
             
             # Собираем запросы
             logger.debug(f"Перехвачено запросов: {len(driver.requests)}")

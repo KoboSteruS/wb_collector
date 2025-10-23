@@ -36,9 +36,12 @@ class WBAuthService:
         """
         self.headless = headless
     
-    def _start_browser(self) -> webdriver.Chrome:
+    def _start_browser(self, proxy_data: Optional[dict] = None) -> webdriver.Chrome:
         """
-        Запуск браузера Chrome.
+        Запуск браузера Chrome с поддержкой прокси.
+        
+        Args:
+            proxy_data: Данные прокси (host, port, username, password)
         
         Returns:
             webdriver.Chrome: Экземпляр драйвера
@@ -56,6 +59,25 @@ class WBAuthService:
         opts.add_argument("--headless=new")
         opts.add_argument("--disable-blink-features=AutomationControlled")
         opts.add_argument("--window-size=1920,1080")
+        
+        # Настройка прокси если передан
+        if proxy_data:
+            proxy_host = proxy_data.get('host')
+            proxy_port = proxy_data.get('port')
+            proxy_username = proxy_data.get('username')
+            proxy_password = proxy_data.get('password')
+            
+            if proxy_host and proxy_port:
+                # Формируем строку прокси
+                if proxy_username and proxy_password:
+                    proxy_string = f"{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
+                else:
+                    proxy_string = f"{proxy_host}:{proxy_port}"
+                
+                opts.add_argument(f"--proxy-server=http://{proxy_string}")
+                logger.info(f"🌐 Используем прокси: {proxy_host}:{proxy_port}")
+            else:
+                logger.warning("⚠️ Неполные данные прокси, запускаем без прокси")
         
         logger.debug("Запуск Chrome в headless режиме")
         
@@ -96,7 +118,8 @@ class WBAuthService:
     async def login_and_get_cookies_with_ws(
         self,
         phone: str,
-        auth_session
+        auth_session,
+        proxy_data: Optional[dict] = None
     ) -> Optional[str]:
         """
         Авторизация в WB и получение cookies через WebSocket.
@@ -104,11 +127,12 @@ class WBAuthService:
         Args:
             phone: Номер телефона без +7
             auth_session: Сессия авторизации с WebSocket
+            proxy_data: Данные прокси (опционально)
             
         Returns:
             Optional[str]: JSON строка с cookies или None при ошибке
         """
-        driver = self._start_browser()
+        driver = self._start_browser(proxy_data)
         wait = WebDriverWait(driver, 20)
         
         try:

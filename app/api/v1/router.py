@@ -10,6 +10,7 @@ from app.core import logger
 from .accounts import router as accounts_router
 from .ws_routes import router as ws_router
 from .articles import router as articles_router
+from .proxies import router as proxies_router
 
 
 # Создаем главный роутер для API v1
@@ -19,6 +20,7 @@ api_router = APIRouter()
 api_router.include_router(accounts_router)
 api_router.include_router(ws_router)
 api_router.include_router(articles_router)
+api_router.include_router(proxies_router)
 
 
 @api_router.get("/health", tags=["Health"])

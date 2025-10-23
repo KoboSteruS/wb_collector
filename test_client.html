@@ -26,7 +26,7 @@
             padding: 30px;
             border-radius: 15px;
             box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            max-width: 600px;
+            max-width: 1200px;
             width: 100%;
         }
         
@@ -292,6 +292,7 @@
         <!-- Вкладки -->
         <div class="tabs">
             <button class="tab active" onclick="switchTab('accounts')">👤 Аккаунты</button>
+            <button class="tab" onclick="switchTab('proxies')">🌐 Прокси</button>
             <button class="tab" onclick="switchTab('articles')">📦 Артикулы</button>
             <button class="tab" onclick="switchTab('parsing')">🔍 Парсинг</button>
             <button class="tab" onclick="switchTab('links')">🔗 Ссылки</button>
@@ -341,6 +342,42 @@
                 <div class="log-title">📋 Логи авторизации:</div>
                 <div id="logs"></div>
             </div>
+        </div>
+        
+        <!-- ВКЛАДКА: Прокси -->
+        <div id="tab-proxies" class="tab-content">
+            <h2>🌐 Управление прокси</h2>
+            
+            <!-- Форма добавления прокси -->
+            <div class="form-group">
+                <label for="proxyName">Название прокси:</label>
+                <input type="text" id="proxyName" placeholder="Прокси #1">
+            </div>
+            
+            <div class="form-group">
+                <label for="proxyHost">Хост:</label>
+                <input type="text" id="proxyHost" placeholder="192.168.1.1">
+            </div>
+            
+            <div class="form-group">
+                <label for="proxyPort">Порт:</label>
+                <input type="number" id="proxyPort" placeholder="8080">
+            </div>
+            
+            <div class="form-group">
+                <label for="proxyUsername">Логин (опционально):</label>
+                <input type="text" id="proxyUsername" placeholder="user">
+            </div>
+            
+            <div class="form-group">
+                <label for="proxyPassword">Пароль (опционально):</label>
+                <input type="password" id="proxyPassword" placeholder="pass">
+            </div>
+            
+            <button onclick="addProxy()">➕ Добавить прокси</button>
+            
+            <h3 style="margin-top: 30px;">Список прокси:</h3>
+            <div id="proxiesList"></div>
         </div>
         
         <!-- ВКЛАДКА: Артикулы -->
@@ -571,6 +608,8 @@
             // Загружаем данные
             if (tabName === 'articles') {
                 loadArticles();
+            } else if (tabName === 'proxies') {
+                loadProxies();
             } else if (tabName === 'parsing') {
                 loadScheduleInfo();
             } else if (tabName === 'links') {
@@ -788,6 +827,125 @@
                         <p>${error.message}</p>
                     </div>
                 `;
+            }
+        }
+        
+        // === ПРОКСИ ===
+        async function addProxy() {
+            const name = document.getElementById('proxyName').value.trim();
+            const host = document.getElementById('proxyHost').value.trim();
+            const port = document.getElementById('proxyPort').value.trim();
+            const username = document.getElementById('proxyUsername').value.trim();
+            const password = document.getElementById('proxyPassword').value.trim();
+            
+            if (!name || !host || !port) {
+                alert('Заполните обязательные поля: название, хост и порт!');
+                return;
+            }
+            
+            if (!/^\d+$/.test(port) || parseInt(port) < 1 || parseInt(port) > 65535) {
+                alert('Порт должен быть числом от 1 до 65535!');
+                return;
+            }
+            
+            try {
+                const response = await fetch('http://147.45.219.248:8000/api/v1/proxies/add', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: name,
+                        host: host,
+                        port: parseInt(port),
+                        username: username || null,
+                        password: password || null
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    alert(`✅ Прокси "${name}" добавлен!`);
+                    // Очищаем форму
+                    document.getElementById('proxyName').value = '';
+                    document.getElementById('proxyHost').value = '';
+                    document.getElementById('proxyPort').value = '';
+                    document.getElementById('proxyUsername').value = '';
+                    document.getElementById('proxyPassword').value = '';
+                    // Обновляем список
+                    loadProxies();
+                } else {
+                    alert(`❌ Ошибка: ${data.detail || 'Не удалось добавить прокси'}`);
+                }
+            } catch (error) {
+                alert(`❌ Ошибка: ${error.message}`);
+            }
+        }
+        
+        async function loadProxies() {
+            try {
+                const response = await fetch('http://147.45.219.248:8000/api/v1/proxies/list');
+                const proxies = await response.json();
+                
+                const container = document.getElementById('proxiesList');
+                
+                if (!proxies || proxies.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <h3>🌐 Прокси не найдены</h3>
+                            <p>Добавьте прокси для многопоточного парсинга</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                container.innerHTML = proxies.map(proxy => `
+                    <div class="list-item">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h4>🌐 ${proxy.name}</h4>
+                                <p><strong>Хост:</strong> ${proxy.host}:${proxy.port}</p>
+                                ${proxy.username ? `<p><strong>Логин:</strong> ${proxy.username}</p>` : ''}
+                                <p><strong>Статус:</strong> ${proxy.status || 'Неизвестно'}</p>
+                            </div>
+                            <div>
+                                <button onclick="deleteProxy('${proxy.uuid}')" 
+                                        style="background: #f44336; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+                                    🗑️ Удалить
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+                
+            } catch (error) {
+                document.getElementById('proxiesList').innerHTML = `
+                    <div class="empty-state">
+                        <h3>❌ Ошибка загрузки</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+        
+        async function deleteProxy(proxyUuid) {
+            if (!confirm('Удалить этот прокси?')) return;
+            
+            try {
+                const response = await fetch(`http://147.45.219.248:8000/api/v1/proxies/delete/${proxyUuid}`, {
+                    method: 'DELETE'
+                });
+                
+                if (response.ok) {
+                    alert('✅ Прокси удален!');
+                    loadProxies();
+                } else {
+                    const data = await response.json();
+                    alert(`❌ Ошибка: ${data.detail || 'Не удалось удалить прокси'}`);
+                }
+            } catch (error) {
+                alert(`❌ Ошибка: ${error.message}`);
             }
         }
     </script>
