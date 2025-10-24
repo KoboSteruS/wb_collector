@@ -5,6 +5,8 @@
 """
 
 import time
+import json
+import concurrent.futures
 from typing import Optional, List, Dict
 from uuid import uuid4
 
@@ -343,12 +345,16 @@ class WBParserService:
     
     def parse_all_articles(self) -> int:
         """
-        Парсинг всех артикулов через все аккаунты.
+        Парсинг всех артикулов с приоритизацией по прокси.
+        
+        Логика:
+        1. Аккаунты С прокси - парсятся ПАРАЛЛЕЛЬНО (до 5 потоков)
+        2. Аккаунты БЕЗ прокси - парсятся ПОСЛЕДОВАТЕЛЬНО
         
         Returns:
             int: Количество успешных парсингов
         """
-        logger.info("🚀 Запуск парсинга всех артикулов...")
+        logger.info("🚀 Запуск парсинга всех артикулов с приоритизацией...")
         
         articles = article_storage.get_all_articles()
         accounts = account_storage.get_all_accounts()
@@ -361,33 +367,173 @@ class WBParserService:
             logger.warning("⚠️ Нет аккаунтов для парсинга")
             return 0
         
+        # Разделяем аккаунты на группы
+        accounts_with_proxy = []
+        accounts_without_proxy = []
+        
+        from app.db.proxy_storage import ProxyStorage
+        proxy_storage = ProxyStorage()
+        
+        for account in accounts:
+            if not account.cookies:
+                logger.warning(f"⚠️ У аккаунта {account.name} нет cookies")
+                continue
+                
+            # Проверяем есть ли прокси у аккаунта
+            proxy_uuid = getattr(account, 'proxy_uuid', None)
+            if proxy_uuid:
+                proxy_data = proxy_storage.get_proxy(proxy_uuid)
+                if proxy_data:
+                    accounts_with_proxy.append((account, proxy_data))
+                    logger.debug(f"🌐 Аккаунт {account.name} с прокси {proxy_data['name']}")
+                else:
+                    accounts_without_proxy.append((account, None))
+                    logger.warning(f"⚠️ У аккаунта {account.name} прокси не найден")
+            else:
+                accounts_without_proxy.append((account, None))
+                logger.debug(f"📱 Аккаунт {account.name} без прокси")
+        
+        logger.info(f"📊 Статистика: {len(accounts_with_proxy)} с прокси, {len(accounts_without_proxy)} без прокси")
+        
         total_parsed = 0
         
+        # 1. ПАРСИМ АККАУНТЫ С ПРОКСИ (параллельно, до 5 потоков)
+        if accounts_with_proxy:
+            logger.info("🌐 Парсинг аккаунтов с прокси (параллельно)...")
+            total_parsed += self._parse_with_proxy_parallel(articles, accounts_with_proxy)
+        
+        # 2. ПАРСИМ АККАУНТЫ БЕЗ ПРОКСИ (последовательно)
+        if accounts_without_proxy:
+            logger.info("📱 Парсинг аккаунтов без прокси (последовательно)...")
+            total_parsed += self._parse_without_proxy_sequential(articles, accounts_without_proxy)
+        
+        # 3. ОБНОВЛЯЕМ АНАЛИТИКУ ДЛЯ ВСЕХ АРТИКУЛОВ
         for article in articles:
-            logger.info(f"📦 Парсинг артикула {article.article_id}...")
+            article_storage.update_analytics(article.article_id)
+        
+        logger.success(f"✅ Парсинг завершен. Обработано: {total_parsed} записей")
+        return total_parsed
+    
+    def _parse_with_proxy_parallel(self, articles, accounts_with_proxy) -> int:
+        """
+        Параллельный парсинг аккаунтов с прокси (до 5 потоков).
+        
+        Args:
+            articles: Список артикулов
+            accounts_with_proxy: Список (аккаунт, прокси_данные)
             
-            for account in accounts:
-                if not account.cookies:
-                    logger.warning(f"⚠️ У аккаунта {account.name} нет cookies")
-                    continue
+        Returns:
+            int: Количество успешных парсингов
+        """
+        import threading
+        
+        total_parsed = 0
+        max_workers = min(5, len(accounts_with_proxy))  # До 5 потоков
+        
+        logger.info(f"🌐 Запуск параллельного парсинга: {max_workers} потоков")
+        
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Создаем задачи для каждого артикула
+            futures = []
+            
+            for article in articles:
+                logger.info(f"📦 Парсинг артикула {article.article_id} (параллельно)...")
+                
+                # Создаем задачи для всех аккаунтов с прокси
+                for account, proxy_data in accounts_with_proxy:
+                    future = executor.submit(
+                        self._parse_single_article_with_proxy,
+                        article.article_id,
+                        str(account.uuid),
+                        account.cookies,
+                        proxy_data
+                    )
+                    futures.append(future)
+            
+            # Ждем завершения всех задач
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                    if result:
+                        article_storage.add_parsing_result(result)
+                        total_parsed += 1
+                        logger.debug(f"✅ Результат сохранен для артикула {result.article_id}")
+                except Exception as e:
+                    logger.error(f"❌ Ошибка в параллельном парсинге: {e}")
+        
+        logger.info(f"🌐 Параллельный парсинг завершен: {total_parsed} записей")
+        return total_parsed
+    
+    def _parse_without_proxy_sequential(self, articles, accounts_without_proxy) -> int:
+        """
+        Последовательный парсинг аккаунтов без прокси.
+        
+        Args:
+            articles: Список артикулов
+            accounts_without_proxy: Список (аккаунт, None)
+            
+        Returns:
+            int: Количество успешных парсингов
+        """
+        total_parsed = 0
+        
+        logger.info(f"📱 Запуск последовательного парсинга: {len(accounts_without_proxy)} аккаунтов")
+        
+        for article in articles:
+            logger.info(f"📦 Парсинг артикула {article.article_id} (последовательно)...")
+            
+            for account, _ in accounts_without_proxy:
+                logger.debug(f"📱 Парсинг через аккаунт {account.name} (без прокси)")
                 
                 result = self.parse_article(
                     article.article_id,
                     str(account.uuid),
-                    account.cookies
+                    account.cookies,
+                    proxy_data=None  # Без прокси
                 )
                 
                 if result:
                     article_storage.add_parsing_result(result)
                     total_parsed += 1
                 
-                time.sleep(2)  # Пауза между запросами
-            
-            # Обновляем аналитику для артикула
-            article_storage.update_analytics(article.article_id)
+                time.sleep(2)  # Пауза между запросами без прокси
         
-        logger.success(f"✅ Парсинг завершен. Обработано: {total_parsed} записей")
+        logger.info(f"📱 Последовательный парсинг завершен: {total_parsed} записей")
         return total_parsed
+    
+    def _parse_single_article_with_proxy(self, article_id, account_uuid, cookies, proxy_data):
+        """
+        Парсинг одного артикула с прокси (для параллельного выполнения).
+        
+        Args:
+            article_id: ID артикула
+            account_uuid: UUID аккаунта
+            cookies: Cookies аккаунта
+            proxy_data: Данные прокси
+            
+        Returns:
+            ParsingResult или None
+        """
+        try:
+            logger.debug(f"🌐 Парсинг {article_id} через {account_uuid} с прокси {proxy_data['name']}")
+            
+            result = self.parse_article(
+                article_id,
+                account_uuid,
+                cookies,
+                proxy_data=proxy_data
+            )
+            
+            if result:
+                logger.debug(f"✅ Успешно спарсен {article_id} через {account_uuid}")
+            else:
+                logger.warning(f"⚠️ Не удалось спарсить {article_id} через {account_uuid}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"❌ Ошибка парсинга {article_id} через {account_uuid}: {e}")
+            return None
 
 
 # Глобальный экземпляр сервиса
