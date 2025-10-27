@@ -12,6 +12,8 @@ from uuid import uuid4
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 
 from app.core import logger, settings
 from app.db import account_storage, article_storage

@@ -5,6 +5,7 @@
 """
 
 import json
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, List
 from uuid import UUID
@@ -109,7 +110,10 @@ class AccountStorage:
                 name=account_data["name"],
                 phone=account_data["phone"],
                 cookies=account_data.get("cookies"),
+                proxy_uuid=account_data.get("proxy_uuid"),
                 uuid=UUID(account_data["uuid"]),
+                created_at=datetime.fromisoformat(account_data["created_at"]) if account_data.get("created_at") else None,
+                updated_at=datetime.fromisoformat(account_data["updated_at"]) if account_data.get("updated_at") else None
             )
             
         except Exception as e:
@@ -128,7 +132,6 @@ class AccountStorage:
             bool: Успешность операции
         """
         try:
-            from datetime import datetime
             import json as json_lib
             
             data = self._load_data()
@@ -169,7 +172,10 @@ class AccountStorage:
                     name=account_data["name"],
                     phone=account_data["phone"],
                     cookies=account_data.get("cookies"),
+                    proxy_uuid=account_data.get("proxy_uuid"),
                     uuid=UUID(account_data["uuid"]),
+                    created_at=datetime.fromisoformat(account_data["created_at"]) if account_data.get("created_at") else None,
+                    updated_at=datetime.fromisoformat(account_data["updated_at"]) if account_data.get("updated_at") else None
                 )
                 accounts.append(account)
             
@@ -218,7 +224,6 @@ class AccountStorage:
                 del account_data['proxy_uuid']
             
             # Обновляем время изменения
-            from datetime import datetime
             account_data['updated_at'] = datetime.now().isoformat()
             
             data[account_uuid] = account_data

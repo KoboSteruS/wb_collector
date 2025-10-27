@@ -18,6 +18,7 @@ class Account:
         name: Название аккаунта для различия
         phone: Номер телефона (без +7)
         cookies: JSON строка с cookies
+        proxy_uuid: UUID привязанного прокси
         created_at: Дата создания
         updated_at: Дата последнего обновления
     """
@@ -27,6 +28,7 @@ class Account:
         name: str,
         phone: str,
         cookies: Optional[str] = None,
+        proxy_uuid: Optional[str] = None,
         uuid: Optional[UUID] = None,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None
@@ -38,6 +40,7 @@ class Account:
             name: Название аккаунта
             phone: Номер телефона
             cookies: JSON строка с cookies
+            proxy_uuid: UUID привязанного прокси
             uuid: UUID аккаунта
             created_at: Дата создания
             updated_at: Дата обновления
@@ -46,6 +49,7 @@ class Account:
         self.name = name
         self.phone = phone
         self.cookies = cookies
+        self.proxy_uuid = proxy_uuid
         self.created_at = created_at or datetime.utcnow()
         self.updated_at = updated_at
     
@@ -71,6 +75,7 @@ class Account:
             "name": self.name,
             "phone": self.phone,
             "cookies": self.cookies,
+            "proxy_uuid": self.proxy_uuid,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

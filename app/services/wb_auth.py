@@ -12,6 +12,8 @@ from uuid import uuid4
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.support.ui import WebDriverWait
@@ -50,8 +52,11 @@ class WBAuthService:
         
         opts = Options()
         
-        # ВАЖНО: указываем путь к Chrome бинарнику
-        opts.binary_location = "/opt/chrome/chrome"
+        # Для Windows - не указываем binary_location (используем системный Chrome)
+        import platform
+        if platform.system() != "Windows":
+            # Только для Linux сервера
+            opts.binary_location = "/opt/chrome/chrome"
         
         # Флаги для headless режима
         opts.add_argument("--no-sandbox")
@@ -84,8 +89,15 @@ class WBAuthService:
         try:
             logger.info("🚀 Запускаем Chrome через Selenium")
             
-            # Используем ПРАВИЛЬНЫЙ chromedriver (совместимый с версией Chrome)
-            service = Service(executable_path='/usr/bin/chromedriver')
+            # Используем webdriver-manager для автоматической установки ChromeDriver
+            import platform
+            if platform.system() == "Windows":
+                # Для Windows - автоматическая установка ChromeDriver
+                service = Service(ChromeDriverManager().install())
+            else:
+                # Для Linux сервера - используем системный chromedriver
+                service = Service(executable_path='/usr/bin/chromedriver')
+            
             driver = webdriver.Chrome(service=service, options=opts)
             
             logger.info("✅ Chrome успешно запущен!")
@@ -179,6 +191,45 @@ class WBAuthService:
             if not phone_input:
                 raise Exception("Поле телефона не найдено")
             
+            # ПЕРЕИСКИВАЕМ поле телефона перед использованием (может стать stale)
+            logger.info("Переискиваем поле телефона перед вводом...")
+            phone_input = None
+            
+            # Расширенный список селекторов
+            selectors = [
+                "input[placeholder*='000 000-00-00']",
+                "input[placeholder*='000-00-00']", 
+                "input[placeholder*='+7']",
+                "input[type='tel']",
+                "input[name*='phone']",
+                "input[id*='phone']",
+                "input[class*='phone']",
+                "input[data-testid*='phone']",
+                "input[aria-label*='телефон']",
+                "input[aria-label*='phone']"
+            ]
+            
+            for css in selectors:
+                try:
+                    logger.debug(f"Пробуем селектор: {css}")
+                    phone_input = wait.until(
+                        EC.element_to_be_clickable((By.CSS_SELECTOR, css))
+                    )
+                    if phone_input.is_displayed():
+                        logger.info(f"✅ Поле телефона найдено с селектором: {css}")
+                        break
+                except Exception as e:
+                    logger.debug(f"❌ Селектор {css} не найден: {e}")
+                    pass
+            
+            if not phone_input:
+                # Сохраняем HTML для анализа
+                html_content = driver.page_source
+                with open("wb_page_source.html", "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                logger.error("HTML страницы сохранен в wb_page_source.html для анализа")
+                raise Exception("Поле телефона не найдено при повторном поиске")
+            
             # Ввод номера
             self._safe_click(driver, phone_input)
             phone_input.clear()
@@ -251,6 +302,20 @@ class WBAuthService:
                 "step": "entering_code",
                 "message": "Ввод кода подтверждения"
             })
+            
+            # ПЕРЕИСКИВАЕМ элементы после получения кода (могут измениться)
+            logger.info("Переискиваем поля для кода...")
+            inputs = []
+            for _ in range(10):
+                inputs = driver.find_elements(By.CSS_SELECTOR, "input.j-b-charinput")
+                if len(inputs) >= 4:
+                    break
+                time.sleep(0.5)
+            
+            if not inputs:
+                raise Exception("Не найдены поля для ввода кода после получения кода")
+            
+            logger.info(f"Найдено {len(inputs)} полей для кода (повторный поиск)")
             
             # Ввод кода в поля
             for i, ch in enumerate(code):
