@@ -272,45 +272,73 @@ class WBParserService:
                     # УНИВЕРСАЛЬНЫЙ ПОИСК всех элементов с ценами
                     logger.debug("🔍 Универсальный поиск всех цен...")
                     try:
-                        all_elements = driver.find_elements("css selector", "*")
+                        # Используем XPath для более точного поиска
+                        all_elements = driver.find_elements("xpath", "//*[contains(text(), '₽')]")
                         prices_found = []
+                        
+                        logger.debug(f"🔍 Найдено {len(all_elements)} элементов с ₽")
                         
                         for element in all_elements:
                             try:
                                 text = element.text.strip()
-                                if "₽" in text and any(char.isdigit() for char in text):
-                                    # Извлекаем цену
-                                    price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
-                                    if price_text.isdigit():
-                                        price_value = int(price_text)
-                                        prices_found.append({
-                                            'price': price_value,
-                                            'text': text,
-                                            'tag': element.tag_name,
-                                            'class': element.get_attribute('class') or '',
-                                            'id': element.get_attribute('id') or ''
-                                        })
-                                        logger.debug(f"💰 Найдена цена: {price_value}₽ | {text} | {element.tag_name} | {element.get_attribute('class')}")
-                            except:
+                                if text and len(text) < 100:  # Ограничиваем длину текста
+                                    # Улучшенное извлечение цены
+                                    import re
+                                    # Ищем числа в тексте (включая пробелы и неразрывные пробелы)
+                                    numbers = re.findall(r'[\d\s\xa0\u00A0]+', text)
+                                    for num in numbers:
+                                        clean_num = num.replace(" ", "").replace("\xa0", "").replace("\u00A0", "").replace("&nbsp;", "").strip()
+                                        if clean_num.isdigit() and len(clean_num) >= 2:  # Минимум 2 цифры
+                                            price_value = int(clean_num)
+                                            if 10 <= price_value <= 1000000:  # Разумные пределы цен
+                                                prices_found.append({
+                                                    'price': price_value,
+                                                    'text': text,
+                                                    'tag': element.tag_name,
+                                                    'class': element.get_attribute('class') or '',
+                                                    'id': element.get_attribute('id') or ''
+                                                })
+                                                logger.debug(f"💰 Найдена цена: {price_value}₽ | '{text}' | {element.tag_name} | {element.get_attribute('class')[:30]}")
+                                                break
+                            except Exception as e:
                                 continue
                         
+                        # Убираем дубликаты по цене
+                        unique_prices = {}
+                        for p in prices_found:
+                            if p['price'] not in unique_prices:
+                                unique_prices[p['price']] = p
+                        
+                        prices_found = list(unique_prices.values())
                         # Сортируем цены по убыванию
                         prices_found.sort(key=lambda x: x['price'], reverse=True)
                         
                         if prices_found:
-                            logger.debug(f"📊 Найдено {len(prices_found)} цен:")
-                            for i, price_info in enumerate(prices_found[:5]):  # Показываем первые 5
-                                logger.debug(f"  {i+1}. {price_info['price']}₽ | {price_info['text']} | {price_info['tag']} | {price_info['class']}")
+                            logger.debug(f"📊 Найдено {len(prices_found)} уникальных цен:")
+                            for i, price_info in enumerate(prices_found[:10]):  # Показываем первые 10
+                                logger.debug(f"  {i+1}. {price_info['price']}₽ | '{price_info['text']}' | {price_info['tag']} | {price_info['class'][:30]}")
                             
-                            # Берем самую большую цену как базовую
-                            if not base_price and prices_found:
+                            # УМНАЯ ЛОГИКА ВЫБОРА ЦЕН
+                            if len(prices_found) >= 3:
+                                # Если есть 3+ цены, берем по логике:
+                                # 1. Самая большая = старая цена (базовая цена продавца)
+                                # 2. Вторая = SPP цена (цена с скидкой продавца)
+                                # 3. Третья = цена с картой WB
+                                old_price = prices_found[0]['price']
+                                base_price = prices_found[1]['price'] 
+                                price_with_card = prices_found[2]['price']
+                                logger.debug(f"🎯 3+ цен: старая={old_price}₽, SPP={base_price}₽, карта={price_with_card}₽")
+                            elif len(prices_found) == 2:
+                                # Если 2 цены, берем большую как SPP, меньшую как карту
                                 base_price = prices_found[0]['price']
-                                logger.debug(f"📊 Базовая цена установлена: {base_price}₽")
-                            
-                            # Берем вторую по величине как цену с картой
-                            if not price_with_card and len(prices_found) > 1:
                                 price_with_card = prices_found[1]['price']
-                                logger.debug(f"💳 Цена с картой установлена: {price_with_card}₽")
+                                logger.debug(f"🎯 2 цены: SPP={base_price}₽, карта={price_with_card}₽")
+                            elif len(prices_found) == 1:
+                                # Если 1 цена, берем как SPP
+                                base_price = prices_found[0]['price']
+                                logger.debug(f"🎯 1 цена: SPP={base_price}₽")
+                        else:
+                            logger.debug("❌ Цены не найдены универсальным поиском")
                                 
                     except Exception as e:
                         logger.debug(f"❌ Ошибка универсального поиска: {e}")
