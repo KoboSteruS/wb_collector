@@ -208,38 +208,50 @@ class WBParserService:
                     # Старые селекторы для цены с картой
                     old_card_selectors = [
                         "span.priceBlockWalletPrice--RJGuT",
+                        "span.priceBlockWalletPrice--RJGuT.redPrice--iueN6",
                         "[class*='wallet'][class*='price']",
-                        "span[class*='wallet']"
+                        "span[class*='wallet']",
+                        ".redPrice--iueN6",
+                        "span[class*='redPrice']"
                     ]
                     
                     for selector in old_card_selectors:
                         try:
+                            logger.debug(f"🔍 Пробуем селектор карты: {selector}")
                             element = driver.find_element("css selector", selector)
                             text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                            logger.debug(f"📝 Текст элемента: '{element.text}' -> '{text}'")
                             if text.isdigit():
                                 price_with_card = int(text)
-                                logger.debug(f"💳 Цена с картой (старый селектор): {price_with_card} ₽")
+                                logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
                                 break
-                        except:
+                        except Exception as e:
+                            logger.debug(f"❌ Селектор {selector} не найден: {e}")
                             continue
                     
                     # Старые селекторы для основной цены
                     old_base_selectors = [
                         "ins.priceBlockFinalPrice--iToZR",
+                        "ins.priceBlockFinalPrice--iToZR.wallet--N1t3o",
                         "ins.price-block__final-price",
                         ".price-block__final-price",
-                        "span.price-block__final-price"
+                        "span.price-block__final-price",
+                        ".priceBlockFinalPrice--iToZR",
+                        "ins[class*='priceBlockFinalPrice']"
                     ]
                     
                     for selector in old_base_selectors:
                         try:
+                            logger.debug(f"🔍 Пробуем селектор основной цены: {selector}")
                             element = driver.find_element("css selector", selector)
                             text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                            logger.debug(f"📝 Текст элемента: '{element.text}' -> '{text}'")
                             if text.isdigit():
                                 base_price = int(text)
-                                logger.debug(f"📊 Основная цена (старый селектор): {base_price} ₽")
+                                logger.debug(f"💰 Основная цена найдена: {base_price} ₽")
                                 break
-                        except:
+                        except Exception as e:
+                            logger.debug(f"❌ Селектор {selector} не найден: {e}")
                             continue
                 
                 # Вычисляем скидку по карте
