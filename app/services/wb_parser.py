@@ -120,6 +120,9 @@ class WBParserService:
                 logger.debug("🔍 Ищем кнопку для открытия попапа Детализация цены...")
                 
                 popup_selectors = [
+                    ".productPrice--FrVYO",  # Основной блок цены
+                    ".priceBlock--ZADKT",  # Блок цены
+                    ".priceDetailsPointer--pPAL4",  # Указатель детализации
                     "button[data-link='text{:product^price}']",  # Кнопка цены
                     ".price-block__final-price",  # Клик по цене
                     "ins.priceBlockFinalPrice--iToZR",  # Основная цена
@@ -147,6 +150,38 @@ class WBParserService:
                 
                 if not popup_opened:
                     logger.debug("⚠️ Попап не открылся, пробуем парсить без него")
+                else:
+                    logger.debug("✅ Попап открыт, парсим цены из него...")
+                    
+                    # Ищем цены в попапе
+                    popup_price_selectors = [
+                        ".walletPriceWrap--GjYV7 h2",  # Цена с картой в попапе
+                        ".finalPriceWrap--tKHRP h2",   # SPP цена в попапе
+                        ".finalPriceWrap--tKHRP span", # Старая цена в попапе
+                        "h2",  # Заголовки с ценами
+                        ".price-details-price",
+                        "[class*='price']"
+                    ]
+                    
+                    for selector in popup_price_selectors:
+                        try:
+                            elements = driver.find_elements("css selector", selector)
+                            for element in elements:
+                                text = element.text.strip()
+                                if "₽" in text and any(char.isdigit() for char in text):
+                                    price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                    if price_text.isdigit():
+                                        if not price_with_card:
+                                            price_with_card = int(price_text)
+                                            logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
+                                        elif not base_price:
+                                            base_price = int(price_text)
+                                            logger.debug(f"📊 Обычная цена найдена: {base_price} ₽")
+                                            break
+                            if base_price:
+                                break
+                        except:
+                            continue
                 
                 # 2. Парсим цены из попапа или с основной страницы
                 time.sleep(1)  # Дополнительная пауза для загрузки
@@ -207,12 +242,12 @@ class WBParserService:
                     
                     # Старые селекторы для цены с картой
                     old_card_selectors = [
-                        "span.priceBlockWalletPrice--RJGuT",
                         "span.priceBlockWalletPrice--RJGuT.redPrice--iueN6",
-                        "[class*='wallet'][class*='price']",
-                        "span[class*='wallet']",
+                        "span.priceBlockWalletPrice--RJGuT",
                         ".redPrice--iueN6",
-                        "span[class*='redPrice']"
+                        "span[class*='redPrice']",
+                        "[class*='wallet'][class*='price']",
+                        "span[class*='wallet']"
                     ]
                     
                     for selector in old_card_selectors:
@@ -231,13 +266,13 @@ class WBParserService:
                     
                     # Старые селекторы для основной цены (SPP цена)
                     old_base_selectors = [
-                        "ins.priceBlockFinalPrice--iToZR",
                         "ins.priceBlockFinalPrice--iToZR.wallet--N1t3o",
+                        "ins.priceBlockFinalPrice--iToZR",
+                        ".priceBlockFinalPrice--iToZR",
+                        "ins[class*='priceBlockFinalPrice']",
                         "ins.price-block__final-price",
                         ".price-block__final-price",
-                        "span.price-block__final-price",
-                        ".priceBlockFinalPrice--iToZR",
-                        "ins[class*='priceBlockFinalPrice']"
+                        "span.price-block__final-price"
                     ]
                     
                     # Селекторы для старой цены (базовая цена продавца)
