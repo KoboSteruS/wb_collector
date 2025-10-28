@@ -229,7 +229,7 @@ class WBParserService:
                             logger.debug(f"❌ Селектор {selector} не найден: {e}")
                             continue
                     
-                    # Старые селекторы для основной цены
+                    # Старые селекторы для основной цены (SPP цена)
                     old_base_selectors = [
                         "ins.priceBlockFinalPrice--iToZR",
                         "ins.priceBlockFinalPrice--iToZR.wallet--N1t3o",
@@ -238,6 +238,17 @@ class WBParserService:
                         "span.price-block__final-price",
                         ".priceBlockFinalPrice--iToZR",
                         "ins[class*='priceBlockFinalPrice']"
+                    ]
+                    
+                    # Селекторы для старой цены (базовая цена продавца)
+                    old_price_selectors = [
+                        "span.priceBlockOldPrice--qSWAf",
+                        ".priceBlockOldPrice--qSWAf",
+                        "span[class*='OldPrice']",
+                        "span[class*='old']",
+                        "del",
+                        "s",
+                        "span[style*='line-through']"
                     ]
                     
                     for selector in old_base_selectors:
@@ -249,6 +260,21 @@ class WBParserService:
                             if text.isdigit():
                                 base_price = int(text)
                                 logger.debug(f"💰 Основная цена найдена: {base_price} ₽")
+                                break
+                        except Exception as e:
+                            logger.debug(f"❌ Селектор {selector} не найден: {e}")
+                            continue
+                    
+                    # Поиск старой цены (базовая цена продавца)
+                    for selector in old_price_selectors:
+                        try:
+                            logger.debug(f"🔍 Пробуем селектор старой цены: {selector}")
+                            element = driver.find_element("css selector", selector)
+                            text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                            logger.debug(f"📝 Текст старой цены: '{element.text}' -> '{text}'")
+                            if text.isdigit():
+                                old_price = int(text)
+                                logger.debug(f"💰 Старая цена найдена: {old_price} ₽")
                                 break
                         except Exception as e:
                             logger.debug(f"❌ Селектор {selector} не найден: {e}")
@@ -307,14 +333,24 @@ class WBParserService:
                 except:
                     pass
                 
-                # Используем цены которые уже спарсили
-                price_basic = base_price or 0
-                price_product = base_price or 0
+                # ПРАВИЛЬНАЯ ЛОГИКА ЦЕН:
+                # 1. price_base - старая цена (базовая цена продавца)
+                # 2. price_spp - цена с SPP (текущая цена с скидкой продавца) 
+                # 3. price_card - цена с картой WB (доп. скидка от SPP)
                 
-                # Вычисляем SPP (упрощенно)
+                price_base = old_price or 0        # Старая цена (зачеркнутая)
+                price_spp = base_price or 0        # Текущая цена (SPP)
+                price_card = price_with_card or 0  # Цена с картой WB
+                
+                # Вычисляем SPP (скидка продавца от базовой цены)
                 spp_real = 0
-                if price_basic and price_product:
-                    spp_real = round(100 - (price_product / price_basic * 100), 2)
+                if price_base and price_spp and price_base > price_spp:
+                    spp_real = round((1 - price_spp / price_base) * 100, 2)
+                
+                # Вычисляем скидку карты (дополнительная скидка от SPP цены)
+                card_discount_real = 0
+                if price_spp and price_card and price_spp > price_card:
+                    card_discount_real = round((1 - price_card / price_spp) * 100, 2)
                 
                 # Создаем результат
                 result = ParsingResult(
@@ -322,24 +358,24 @@ class WBParserService:
                     account_uuid=account_uuid,
                     spp=spp_real,
                     dest="123585633",  # Дефолтный dest
-                    price_basic=price_basic,
-                    price_product=price_product,
-                    price_with_card=price_with_card,
-                    card_discount_percent=card_discount_percent,
+                    price_basic=price_base,      # Базовая цена продавца
+                    price_product=price_spp,     # Цена с SPP
+                    price_with_card=price_card,  # Цена с картой WB
+                    card_discount_percent=card_discount_real,  # Скидка карты от SPP
                     qty=qty
                 )
                 
                 card_info = ""
-                if price_with_card:
-                    card_info = f" | 💳 {price_with_card}₽"
-                    if card_discount_percent:
-                        card_info += f" (-{card_discount_percent}%)"
+                if price_card:
+                    card_info = f" | 💳 {price_card}₽"
+                    if card_discount_real:
+                        card_info += f" (-{card_discount_real}%)"
                     if old_price:
                         card_info += f" | 📉 Было: {old_price}₽"
                 
                 logger.success(
                     f"✅ {brand} | "
-                    f"{price_product/100:.2f}₽ из {price_basic/100:.2f}₽ "
+                    f"{price_spp/100:.2f}₽ из {price_base/100:.2f}₽ "
                     f"(SPP {spp_real}%) | qty={qty}{card_info}"
                 )
                 
