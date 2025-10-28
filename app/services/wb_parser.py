@@ -186,6 +186,35 @@ class WBParserService:
                 # 2. Парсим цены из попапа или с основной страницы
                 time.sleep(1)  # Дополнительная пауза для загрузки
                 
+                # Сохраняем HTML для анализа если ничего не найдено
+                if not price_with_card and not base_price:
+                    try:
+                        html_content = driver.page_source
+                        with open(f"wb_page_debug_{article_id}.html", "w", encoding="utf-8") as f:
+                            f.write(html_content)
+                        logger.debug(f"💾 HTML страницы сохранен: wb_page_debug_{article_id}.html")
+                    except Exception as e:
+                        logger.debug(f"❌ Ошибка сохранения HTML: {e}")
+                
+                # УНИВЕРСАЛЬНЫЕ СЕЛЕКТОРЫ для поиска любых цен
+                universal_price_selectors = [
+                    # Все элементы с ценами
+                    "[class*='price']",
+                    "[class*='Price']", 
+                    "span:contains('₽')",
+                    "div:contains('₽')",
+                    "ins:contains('₽')",
+                    "h2:contains('₽')",
+                    "h3:contains('₽')",
+                    # По тексту содержащему ₽
+                    "*:contains('₽')",
+                    # Все span и div с числами
+                    "span",
+                    "div",
+                    "ins",
+                    "h1", "h2", "h3", "h4", "h5", "h6"
+                ]
+                
                 # Ищем цену "с WB Кошельком" (розовая)
                 wb_wallet_selectors = [
                     "[class*='wallet'][class*='price']",  # Элементы с wallet и price
@@ -239,6 +268,52 @@ class WBParserService:
                 # Если не нашли в попапе, пробуем старые селекторы
                 if not price_with_card or not base_price:
                     logger.debug("🔄 Пробуем старые селекторы...")
+                    
+                    # УНИВЕРСАЛЬНЫЙ ПОИСК всех элементов с ценами
+                    logger.debug("🔍 Универсальный поиск всех цен...")
+                    try:
+                        all_elements = driver.find_elements("css selector", "*")
+                        prices_found = []
+                        
+                        for element in all_elements:
+                            try:
+                                text = element.text.strip()
+                                if "₽" in text and any(char.isdigit() for char in text):
+                                    # Извлекаем цену
+                                    price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                    if price_text.isdigit():
+                                        price_value = int(price_text)
+                                        prices_found.append({
+                                            'price': price_value,
+                                            'text': text,
+                                            'tag': element.tag_name,
+                                            'class': element.get_attribute('class') or '',
+                                            'id': element.get_attribute('id') or ''
+                                        })
+                                        logger.debug(f"💰 Найдена цена: {price_value}₽ | {text} | {element.tag_name} | {element.get_attribute('class')}")
+                            except:
+                                continue
+                        
+                        # Сортируем цены по убыванию
+                        prices_found.sort(key=lambda x: x['price'], reverse=True)
+                        
+                        if prices_found:
+                            logger.debug(f"📊 Найдено {len(prices_found)} цен:")
+                            for i, price_info in enumerate(prices_found[:5]):  # Показываем первые 5
+                                logger.debug(f"  {i+1}. {price_info['price']}₽ | {price_info['text']} | {price_info['tag']} | {price_info['class']}")
+                            
+                            # Берем самую большую цену как базовую
+                            if not base_price and prices_found:
+                                base_price = prices_found[0]['price']
+                                logger.debug(f"📊 Базовая цена установлена: {base_price}₽")
+                            
+                            # Берем вторую по величине как цену с картой
+                            if not price_with_card and len(prices_found) > 1:
+                                price_with_card = prices_found[1]['price']
+                                logger.debug(f"💳 Цена с картой установлена: {price_with_card}₽")
+                                
+                    except Exception as e:
+                        logger.debug(f"❌ Ошибка универсального поиска: {e}")
                     
                     # Старые селекторы для цены с картой
                     old_card_selectors = [
