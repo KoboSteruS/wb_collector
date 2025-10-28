@@ -75,7 +75,26 @@ class WBParserService:
                     proxy_string = f"{proxy_host}:{proxy_port}"
                 
                 options.add_argument(f"--proxy-server=http://{proxy_string}")
+                # Дополнительные настройки для прокси
+                options.add_argument('--proxy-bypass-list=<-loopback>')
+                options.add_argument('--disable-web-security')
+                options.add_argument('--disable-features=VizDisplayCompositor')
+                options.add_argument('--ignore-certificate-errors')
+                options.add_argument('--ignore-ssl-errors')
+                options.add_argument('--ignore-certificate-errors-spki-list')
                 logger.info(f"🌐 Используем прокси для парсинга: {proxy_host}:{proxy_port}")
+                
+                # Проверяем доступность прокси
+                try:
+                    import socket
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    sock.settimeout(5)
+                    result = sock.connect_ex((proxy_host, int(proxy_port)))
+                    sock.close()
+                    if result != 0:
+                        logger.warning(f"⚠️ Прокси {proxy_host}:{proxy_port} недоступен")
+                except Exception as e:
+                    logger.warning(f"⚠️ Ошибка проверки прокси: {e}")
             else:
                 logger.warning("⚠️ Неполные данные прокси, парсим без прокси")
         
@@ -185,6 +204,39 @@ class WBParserService:
                 
                 # 2. Парсим цены из попапа или с основной страницы
                 time.sleep(1)  # Дополнительная пауза для загрузки
+                
+                # Проверяем на ошибки Chrome
+                page_title = driver.title.lower()
+                page_source = driver.page_source.lower()
+                
+                if "this site can't be reached" in page_source or "err_no_supported_proxies" in page_source:
+                    logger.error(f"🚫 Ошибка прокси для {article_id}: ERR_NO_SUPPORTED_PROXIES")
+                    logger.error(f"🌐 Прокси не поддерживается или заблокирован Wildberries")
+                    return ParsingResult(
+                        article_id=article_id,
+                        account_uuid=account_uuid,
+                        spp=0,
+                        dest="123585633",
+                        price_basic=0,
+                        price_product=0,
+                        price_with_card=0,
+                        card_discount_percent=0,
+                        qty=0
+                    )
+                
+                if "site can't be reached" in page_source or "temporarily down" in page_source:
+                    logger.error(f"🚫 Сайт недоступен для {article_id}")
+                    return ParsingResult(
+                        article_id=article_id,
+                        account_uuid=account_uuid,
+                        spp=0,
+                        dest="123585633",
+                        price_basic=0,
+                        price_product=0,
+                        price_with_card=0,
+                        card_discount_percent=0,
+                        qty=0
+                    )
                 
                 # Сохраняем HTML для анализа если ничего не найдено
                 if not price_with_card and not base_price:
