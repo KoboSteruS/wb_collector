@@ -152,8 +152,11 @@ class ArticleStorage:
             if not results:
                 return None
             
+            # Округляем SPP до десятков для группировки похожих значений
+            rounded_spp = [round(r.spp / 10) * 10 for r in results]
+            
             # Подсчитываем самые частые SPP и dest
-            spp_counter = Counter([r.spp for r in results])
+            spp_counter = Counter(rounded_spp)
             dest_counter = Counter([r.dest for r in results])
             
             most_common_spp = spp_counter.most_common(1)[0][0]

@@ -211,8 +211,12 @@ async def get_global_link() -> LinkResponse:
             detail="Нет данных парсинга. Запустите парсинг сначала."
         )
     
+    # Округляем SPP до десятков для группировки похожих значений
+    # Например: 43.93 -> 40, 47.34 -> 40, 53.76 -> 50
+    rounded_spp = [round(spp / 10) * 10 for spp in all_spp]
+    
     # Находим самые частые значения
-    spp_counter = Counter(all_spp)
+    spp_counter = Counter(rounded_spp)
     dest_counter = Counter(all_dest)
     
     most_common_spp = spp_counter.most_common(1)[0][0]
@@ -231,8 +235,12 @@ async def get_global_link() -> LinkResponse:
     if all_card_discounts:
         avg_card_discount = round(sum(all_card_discounts) / len(all_card_discounts), 1)
     
+    # Подсчитываем сколько записей попало в округленный диапазон
+    spp_in_range = sum(1 for s in rounded_spp if s == most_common_spp)
+    
     logger.success(
-        f"🌍 Глобальная ссылка: SPP={most_common_spp}, dest={most_common_dest} "
+        f"🌍 Глобальная ссылка: SPP={most_common_spp} (округлено с {len(set(all_spp))} уникальных значений, "
+        f"{spp_in_range} записей попало в диапазон), dest={most_common_dest} "
         f"(проанализировано {len(all_spp)} записей из {parsed_articles}/{total_articles} артикулов)"
         f"{f', средняя скидка по карте: {avg_card_discount}%' if avg_card_discount else ''}"
     )
