@@ -48,8 +48,11 @@ class WBParserService:
         """
         options = Options()
         
-        # ВАЖНО: указываем путь к Chrome бинарнику
-        options.binary_location = "/opt/chrome/chrome"
+        # ВАЖНО: указываем путь к Chrome бинарнику только для Linux сервера
+        import platform
+        if platform.system() != "Windows":
+            # Только для Linux сервера
+            options.binary_location = "/opt/chrome/chrome"
         
         # Флаги для headless режима
         if self.headless:
@@ -100,11 +103,28 @@ class WBParserService:
         
         # Используем ПРАВИЛЬНЫЙ chromedriver
         from selenium.webdriver.chrome.service import Service
+        import platform
+        import os
         
-        chromedriver_path = '/usr/bin/chromedriver'
-        logger.info(f"🚀 Запуск парсера через ChromeDriver: {chromedriver_path}")
+        # Определяем путь к ChromeDriver в зависимости от ОС
+        if platform.system() == "Windows":
+            # Для Windows - автоматическая установка ChromeDriver
+            chromedriver_path = ChromeDriverManager().install()
+            logger.info(f"🚀 Запуск парсера через ChromeDriver: {chromedriver_path}")
+            service = Service(chromedriver_path)
+        else:
+            # Для Linux - проверяем наличие системного chromedriver
+            chromedriver_path = '/usr/bin/chromedriver'
+            if os.path.exists(chromedriver_path) and os.access(chromedriver_path, os.X_OK):
+                logger.info(f"🚀 Запуск парсера через ChromeDriver: {chromedriver_path}")
+                service = Service(executable_path=chromedriver_path)
+            else:
+                # Если системного нет - используем webdriver-manager
+                logger.warning(f"⚠️ Системный ChromeDriver не найден, используем webdriver-manager")
+                chromedriver_path = ChromeDriverManager().install()
+                logger.info(f"🚀 Запуск парсера через ChromeDriver: {chromedriver_path}")
+                service = Service(chromedriver_path)
         
-        service = Service(executable_path=chromedriver_path)
         driver = webdriver.Chrome(service=service, options=options)
         
         try:
@@ -170,7 +190,22 @@ class WBParserService:
                 if not popup_opened:
                     logger.debug("⚠️ Попап не открылся, пробуем парсить без него")
                 else:
-                    logger.debug("✅ Попап открыт, парсим цены из него...")
+                    logger.debug("✅ Попап открыт, ожидаем загрузки цен...")
+                    
+                    # Ждем появления контента в попапе (максимум 5 секунд)
+                    time.sleep(2)  # Даём время для рендера React компонентов
+                    
+                    # Ищем цены в попапе по XPath для более точного поиска
+                    try:
+                        # Ищем все элементы с рублями
+                        price_elements = driver.find_elements("xpath", "//*[contains(text(), '₽')]")
+                        logger.debug(f"💰 Найдено {len(price_elements)} элементов с ₽ в попапе")
+                        
+                        for elem in price_elements:
+                            text = elem.text.strip()
+                            logger.debug(f"   📌 Элемент: '{text}' | tag: {elem.tag_name} | class: {elem.get_attribute('class')}")
+                    except Exception as e:
+                        logger.debug(f"❌ Ошибка поиска элементов с ₽: {e}")
                     
                     # Ищем цены в попапе
                     popup_price_selectors = [
@@ -190,10 +225,10 @@ class WBParserService:
                                 if "₽" in text and any(char.isdigit() for char in text):
                                     price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
                                     if price_text.isdigit():
-                                        if not price_with_card:
+                                        if price_with_card is None:
                                             price_with_card = int(price_text)
                                             logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
-                                        elif not base_price:
+                                        elif base_price is None:
                                             base_price = int(price_text)
                                             logger.debug(f"📊 Обычная цена найдена: {base_price} ₽")
                                             break
@@ -238,16 +273,6 @@ class WBParserService:
                         qty=0
                     )
                 
-                # Сохраняем HTML для анализа если ничего не найдено
-                if not price_with_card and not base_price:
-                    try:
-                        html_content = driver.page_source
-                        with open(f"wb_page_debug_{article_id}.html", "w", encoding="utf-8") as f:
-                            f.write(html_content)
-                        logger.debug(f"💾 HTML страницы сохранен: wb_page_debug_{article_id}.html")
-                    except Exception as e:
-                        logger.debug(f"❌ Ошибка сохранения HTML: {e}")
-                
                 # УНИВЕРСАЛЬНЫЕ СЕЛЕКТОРЫ для поиска любых цен
                 universal_price_selectors = [
                     # Все элементы с ценами
@@ -285,8 +310,9 @@ class WBParserService:
                             if "₽" in text and any(char.isdigit() for char in text):
                                 price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
                                 if price_text.isdigit():
-                                    price_with_card = int(price_text)
-                                    logger.debug(f"💳 Цена с WB Кошельком найдена: {price_with_card} ₽")
+                                    if price_with_card is None:
+                                        price_with_card = int(price_text)
+                                        logger.debug(f"💳 Цена с WB Кошельком найдена: {price_with_card} ₽")
                                     break
                         if price_with_card:
                             break
@@ -318,7 +344,7 @@ class WBParserService:
                         continue
                 
                 # Если не нашли в попапе, пробуем старые селекторы
-                if not price_with_card or not base_price:
+                if (price_with_card is None) or (base_price is None):
                     logger.debug("🔄 Пробуем старые селекторы...")
                     
                     # УНИВЕРСАЛЬНЫЙ ПОИСК всех элементов с ценами
@@ -378,12 +404,14 @@ class WBParserService:
                                 # 3. Третья = цена с картой WB
                                 old_price = prices_found[0]['price']
                                 base_price = prices_found[1]['price'] 
-                                price_with_card = prices_found[2]['price']
+                                if price_with_card is None:
+                                    price_with_card = prices_found[2]['price']
                                 logger.debug(f"🎯 3+ цен: старая={old_price}₽, SPP={base_price}₽, карта={price_with_card}₽")
                             elif len(prices_found) == 2:
                                 # Если 2 цены, берем большую как SPP, меньшую как карту
                                 base_price = prices_found[0]['price']
-                                price_with_card = prices_found[1]['price']
+                                if price_with_card is None:
+                                    price_with_card = prices_found[1]['price']
                                 logger.debug(f"🎯 2 цены: SPP={base_price}₽, карта={price_with_card}₽")
                             elif len(prices_found) == 1:
                                 # Если 1 цена, берем как SPP
@@ -412,8 +440,9 @@ class WBParserService:
                             text = element.text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
                             logger.debug(f"📝 Текст элемента: '{element.text}' -> '{text}'")
                             if text.isdigit():
-                                price_with_card = int(text)
-                                logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
+                                if price_with_card is None:
+                                    price_with_card = int(text)
+                                    logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
                                 break
                         except Exception as e:
                             logger.debug(f"❌ Селектор {selector} не найден: {e}")
@@ -572,6 +601,16 @@ class WBParserService:
             except Exception as e:
                 logger.warning(f"⚠️ Ошибка парсинга HTML: {e}")
             
+            # Сохраняем HTML для анализа если ничего не найдено (после всех попыток)
+            if not result or (result and result.spp == 0):
+                try:
+                    html_content = driver.page_source
+                    with open(f"wb_page_debug_{article_id}.html", "w", encoding="utf-8") as f:
+                        f.write(html_content)
+                    logger.debug(f"💾 HTML страницы сохранен: wb_page_debug_{article_id}.html")
+                except Exception as e:
+                    logger.debug(f"❌ Ошибка сохранения HTML: {e}")
+            
             if not result:
                 logger.warning(f"⚠️ Не найдены данные для артикула {article_id}")
             
@@ -585,124 +624,58 @@ class WBParserService:
     
     def parse_all_articles(self) -> int:
         """
-        Парсинг всех артикулов с приоритизацией по прокси.
-        
-        Логика:
-        1. Аккаунты С прокси - парсятся ПАРАЛЛЕЛЬНО (до 5 потоков)
-        2. Аккаунты БЕЗ прокси - парсятся ПОСЛЕДОВАТЕЛЬНО
-        
-        Returns:
-            int: Количество успешных парсингов
+        Парсинг всех артикулов строго последовательно по всем аккаунтам (и с прокси, и без прокси).
+        Больше нет параллельного режима.
+        Возвращает число успешных парсингов.
         """
-        logger.info("🚀 Запуск парсинга всех артикулов с приоритизацией...")
+        logger.info("🚀 Запуск последовательного парсинга всех артикулов по аккаунтам...")
         
         articles = article_storage.get_all_articles()
         accounts = account_storage.get_all_accounts()
-        
+
         if not articles:
             logger.warning("⚠️ Нет артикулов для парсинга")
             return 0
-        
+
         if not accounts:
             logger.warning("⚠️ Нет аккаунтов для парсинга")
             return 0
-        
-        # Разделяем аккаунты на группы
-        accounts_with_proxy = []
-        accounts_without_proxy = []
-        
-        from app.db.proxy_storage import ProxyStorage
-        proxy_storage = ProxyStorage()
-        
-        for account in accounts:
-            if not account.cookies:
-                logger.warning(f"⚠️ У аккаунта {account.name} нет cookies")
-                continue
-                
-            # Проверяем есть ли прокси у аккаунта
-            proxy_uuid = getattr(account, 'proxy_uuid', None)
-            if proxy_uuid:
-                proxy_data = proxy_storage.get_proxy(proxy_uuid)
-                if proxy_data:
-                    accounts_with_proxy.append((account, proxy_data))
-                    logger.debug(f"🌐 Аккаунт {account.name} с прокси {proxy_data['name']}")
-                else:
-                    accounts_without_proxy.append((account, None))
-                    logger.warning(f"⚠️ У аккаунта {account.name} прокси не найден")
-            else:
-                accounts_without_proxy.append((account, None))
-                logger.debug(f"📱 Аккаунт {account.name} без прокси")
-        
-        logger.info(f"📊 Статистика: {len(accounts_with_proxy)} с прокси, {len(accounts_without_proxy)} без прокси")
-        
+
         total_parsed = 0
-        
-        # 1. ПАРСИМ АККАУНТЫ С ПРОКСИ (параллельно, до 5 потоков)
-        if accounts_with_proxy:
-            logger.info("🌐 Парсинг аккаунтов с прокси (параллельно)...")
-            total_parsed += self._parse_with_proxy_parallel(articles, accounts_with_proxy)
-        
-        # 2. ПАРСИМ АККАУНТЫ БЕЗ ПРОКСИ (последовательно)
-        if accounts_without_proxy:
-            logger.info("📱 Парсинг аккаунтов без прокси (последовательно)...")
-            total_parsed += self._parse_without_proxy_sequential(articles, accounts_without_proxy)
-        
-        # 3. ОБНОВЛЯЕМ АНАЛИТИКУ ДЛЯ ВСЕХ АРТИКУЛОВ
+        logger.info(f"📊 Всего аккаунтов для парсинга: {len(accounts)}.")
+
+        for article in articles:
+            logger.info(f"📦 Парсинг артикула {article.article_id} (последовательно по всем аккаунтам)...")
+            for account in accounts:
+                proxy_data = None
+                proxy_uuid = getattr(account, 'proxy_uuid', None)
+                if proxy_uuid:
+                    from app.db.proxy_storage import ProxyStorage
+                    proxy_storage = ProxyStorage()
+                    proxy_data = proxy_storage.get_proxy(proxy_uuid)
+
+                logger.debug(f"🔄 Парсинг через аккаунт {account.name} ({'с прокси' if proxy_data else 'без прокси'})")
+                result = self.parse_article(
+                    article.article_id,
+                    str(account.uuid),
+                    account.cookies,
+                    proxy_data=proxy_data
+                )
+                if result:
+                    article_storage.add_parsing_result(result)
+                    total_parsed += 1
+                time.sleep(2)  # Пауза между запросами (снимает блок, помогает прокси)
+
+        # Обновляем аналитику для всех артикулов
         for article in articles:
             article_storage.update_analytics(article.article_id)
-        
-        logger.success(f"✅ Парсинг завершен. Обработано: {total_parsed} записей")
+        logger.success(f"✅ Последовательный парсинг завершён. Обработано: {total_parsed} записей")
         return total_parsed
     
     def _parse_with_proxy_parallel(self, articles, accounts_with_proxy) -> int:
-        """
-        Параллельный парсинг аккаунтов с прокси (до 5 потоков).
-        
-        Args:
-            articles: Список артикулов
-            accounts_with_proxy: Список (аккаунт, прокси_данные)
-            
-        Returns:
-            int: Количество успешных парсингов
-        """
-        import threading
-        
-        total_parsed = 0
-        max_workers = min(5, len(accounts_with_proxy))  # До 5 потоков
-        
-        logger.info(f"🌐 Запуск параллельного парсинга: {max_workers} потоков")
-        
-        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-            # Создаем задачи для каждого артикула
-            futures = []
-            
-            for article in articles:
-                logger.info(f"📦 Парсинг артикула {article.article_id} (параллельно)...")
-                
-                # Создаем задачи для всех аккаунтов с прокси
-                for account, proxy_data in accounts_with_proxy:
-                    future = executor.submit(
-                        self._parse_single_article_with_proxy,
-                        article.article_id,
-                        str(account.uuid),
-                        account.cookies,
-                        proxy_data
-                    )
-                    futures.append(future)
-            
-            # Ждем завершения всех задач
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    result = future.result()
-                    if result:
-                        article_storage.add_parsing_result(result)
-                        total_parsed += 1
-                        logger.debug(f"✅ Результат сохранен для артикула {result.article_id}")
-                except Exception as e:
-                    logger.error(f"❌ Ошибка в параллельном парсинге: {e}")
-        
-        logger.info(f"🌐 Параллельный парсинг завершен: {total_parsed} записей")
-        return total_parsed
+        # Функция больше не используется.
+        logger.warning('Параллельный парсинг отключён, используйте последовательный!')
+        return 0
     
     def _parse_without_proxy_sequential(self, articles, accounts_without_proxy) -> int:
         """

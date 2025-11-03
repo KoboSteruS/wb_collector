@@ -1,0 +1,32 @@
+{
+  "193697521": {
+    "1788eca4-d186-475b-919b-5493e7ddbc29": {
+      "uuid": "cb155114-22ec-4c2e-87c1-b5641f662c32",
+      "article_id": "193697521",
+      "account_uuid": "1788eca4-d186-475b-919b-5493e7ddbc29",
+      "spp": 0,
+      "dest": "123585633",
+      "price_basic": 0,
+      "price_product": 0,
+      "price_with_card": 0,
+      "card_discount_percent": 0,
+      "qty": 0,
+      "parsed_at": "2025-11-03T10:31:15.932210"
+    }
+  },
+  "9861754": {
+    "1788eca4-d186-475b-919b-5493e7ddbc29": {
+      "uuid": "c40b53d1-dc4b-43cc-9551-26056755cdc0",
+      "article_id": "9861754",
+      "account_uuid": "1788eca4-d186-475b-919b-5493e7ddbc29",
+      "spp": 0,
+      "dest": "123585633",
+      "price_basic": 0,
+      "price_product": 0,
+      "price_with_card": 0,
+      "card_discount_percent": 0,
+      "qty": 0,
+      "parsed_at": "2025-11-03T10:30:11.355359"
+    }
+  }
+}

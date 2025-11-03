@@ -195,8 +195,9 @@ class WBAuthService:
             logger.info("Переискиваем поле телефона перед вводом...")
             phone_input = None
             
-            # Расширенный список селекторов
+            # Расширенный список селекторов (приоритетный селектор первым)
             selectors = [
+                "input[data-testid*='phone']",  # Приоритетный селектор
                 "input[placeholder*='000 000-00-00']",
                 "input[placeholder*='000-00-00']", 
                 "input[placeholder*='+7']",
@@ -204,7 +205,6 @@ class WBAuthService:
                 "input[name*='phone']",
                 "input[id*='phone']",
                 "input[class*='phone']",
-                "input[data-testid*='phone']",
                 "input[aria-label*='телефон']",
                 "input[aria-label*='phone']"
             ]

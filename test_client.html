@@ -539,7 +539,7 @@
             
             try {
                 // Шаг 1: Создаем сессию
-                const response = await fetch('http://147.45.219.248:8000/api/v1/accounts/add_account', {
+                const response = await fetch('http://localhost:8000/api/v1/accounts/add_account', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -566,7 +566,7 @@
         }
         
         function connectWebSocket(sessionId) {
-            ws = new WebSocket(`ws://147.45.219.248:8000/api/v1/ws/auth/${sessionId}`);
+            ws = new WebSocket(`ws://localhost:8000/api/v1/ws/auth/${sessionId}`);
             
             ws.onopen = () => {
                 log('✅ WebSocket подключен', 'success');
@@ -706,7 +706,7 @@
             }
             
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/add', {
+                const response = await fetch('http://localhost:8000/api/v1/articles/add', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({article_id: articleId})
@@ -728,7 +728,7 @@
         
         async function loadArticles() {
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/list');
+                const response = await fetch('http://localhost:8000/api/v1/articles/list');
                 const articles = await response.json();
                 
                 const container = document.getElementById('articlesList');
@@ -759,7 +759,7 @@
         // === ПАРСИНГ ===
         async function loadScheduleInfo() {
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/schedule/status');
+                const response = await fetch('http://localhost:8000/api/v1/articles/schedule/status');
                 const data = await response.json();
                 
                 const container = document.getElementById('scheduleInfo');
@@ -797,7 +797,7 @@
             parsingLog('🚀 Запуск парсинга...', 'info');
             
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/parse/now', {
+                const response = await fetch('http://localhost:8000/api/v1/articles/parse/now', {
                     method: 'POST'
                 });
                 
@@ -817,7 +817,7 @@
         // === АККАУНТЫ ===
         async function loadAccounts() {
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/accounts/list');
+                const response = await fetch('http://localhost:8000/api/v1/accounts/list');
                 const accounts = await response.json();
                 
                 const container = document.getElementById('accountsList');
@@ -868,7 +868,7 @@
                 const container = document.getElementById('allLinksResult');
                 container.innerHTML = '<div class="empty-state"><h3>⏳ Формирование глобальной ссылки...</h3></div>';
                 
-                const response = await fetch('http://147.45.219.248:8000/api/v1/articles/global-link');
+                const response = await fetch('http://localhost:8000/api/v1/articles/global-link');
                 const linkData = await response.json();
                 
                 if (!response.ok) {
@@ -941,7 +941,7 @@
             }
             
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/proxies/add', {
+                const response = await fetch('http://localhost:8000/api/v1/proxies/add', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -977,7 +977,7 @@
         
         async function loadProxies() {
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/proxies/list');
+                const response = await fetch('http://localhost:8000/api/v1/proxies/list');
                 const proxies = await response.json();
                 
                 const container = document.getElementById('proxiesList');
@@ -1025,7 +1025,7 @@
             if (!confirm('Удалить этот прокси?')) return;
             
             try {
-                const response = await fetch(`http://147.45.219.248:8000/api/v1/proxies/delete/${proxyUuid}`, {
+                const response = await fetch(`http://localhost:8000/api/v1/proxies/delete/${proxyUuid}`, {
                     method: 'DELETE'
                 });
                 
@@ -1047,7 +1047,7 @@
                 currentEditAccountUuid = accountUuid;
                 
                 // Загружаем данные аккаунта
-                const response = await fetch(`http://147.45.219.248:8000/api/v1/accounts/${accountUuid}`);
+                const response = await fetch(`http://localhost:8000/api/v1/accounts/${accountUuid}`);
                 const account = await response.json();
                 
                 if (!response.ok) {
@@ -1075,7 +1075,7 @@
         
         async function loadProxiesForEdit() {
             try {
-                const response = await fetch('http://147.45.219.248:8000/api/v1/proxies/list');
+                const response = await fetch('http://localhost:8000/api/v1/proxies/list');
                 const proxies = await response.json();
                 
                 const select = document.getElementById('editAccountProxy');
@@ -1109,7 +1109,7 @@
             }
             
             try {
-                const response = await fetch(`http://147.45.219.248:8000/api/v1/accounts/update/${currentEditAccountUuid}`, {
+                const response = await fetch(`http://localhost:8000/api/v1/accounts/update/${currentEditAccountUuid}`, {
                     method: 'PUT',
                     headers: {
                         'Content-Type': 'application/json'
@@ -1139,7 +1139,7 @@
             if (!confirm('Удалить этот аккаунт? Это действие нельзя отменить!')) return;
             
             try {
-                const response = await fetch(`http://147.45.219.248:8000/api/v1/accounts/delete/${accountUuid}`, {
+                const response = await fetch(`http://localhost:8000/api/v1/accounts/delete/${accountUuid}`, {
                     method: 'DELETE'
                 });
                 

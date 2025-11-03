@@ -50,16 +50,32 @@ class AccountStorage:
     
     def _save_data(self, data: Dict) -> None:
         """
-        Сохранение данных в файл.
+        Сохранение данных в файл с резервным копированием.
         
         Args:
             data: Данные для сохранения
         """
         try:
-            with open(self.storage_file, "w", encoding="utf-8") as f:
+            # Создаем резервную копию перед записью
+            if self.storage_file.exists():
+                backup_file = self.storage_file.with_suffix('.json.backup')
+                import shutil
+                shutil.copy2(self.storage_file, backup_file)
+                logger.debug(f"📦 Резервная копия создана: {backup_file}")
+            
+            # Сохраняем во временный файл, затем переименовываем (атомарная операция)
+            temp_file = self.storage_file.with_suffix('.json.tmp')
+            with open(temp_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            # Атомарное переименование
+            import os
+            temp_file.replace(self.storage_file)
+            logger.debug(f"💾 Данные сохранены в {self.storage_file}")
+            
         except Exception as e:
             logger.error(f"Ошибка сохранения данных: {e}")
+            raise
     
     def add_account(self, account: Account) -> bool:
         """
@@ -122,7 +138,7 @@ class AccountStorage:
     
     def update_cookies(self, account_uuid: str, cookies: str) -> bool:
         """
-        Обновление cookies аккаунта.
+        Обновление cookies аккаунта с резервным копированием.
         
         Args:
             account_uuid: UUID аккаунта
@@ -140,6 +156,29 @@ class AccountStorage:
                 logger.warning(f"⚠️ Аккаунт {account_uuid} не найден")
                 return False
             
+            # Сохраняем резервную копию cookies в отдельный файл
+            cookies_backup_file = self.storage_file.parent / "cookies_backup.json"
+            try:
+                if cookies_backup_file.exists():
+                    backup_data = json.load(open(cookies_backup_file, "r", encoding="utf-8"))
+                else:
+                    backup_data = {}
+                
+                backup_data[account_uuid] = {
+                    "account_uuid": account_uuid,
+                    "account_name": data[account_uuid].get("name", "Unknown"),
+                    "phone": data[account_uuid].get("phone", ""),
+                    "cookies": cookies,
+                    "backup_timestamp": datetime.utcnow().isoformat()
+                }
+                
+                with open(cookies_backup_file, "w", encoding="utf-8") as f:
+                    json.dump(backup_data, f, ensure_ascii=False, indent=2)
+                
+                logger.debug(f"💾 Резервная копия cookies сохранена для {account_uuid}")
+            except Exception as backup_error:
+                logger.warning(f"⚠️ Не удалось создать резервную копию cookies: {backup_error}")
+            
             data[account_uuid]["cookies"] = cookies
             data[account_uuid]["updated_at"] = datetime.utcnow().isoformat()
             
@@ -149,7 +188,7 @@ class AccountStorage:
             cookies_list = json_lib.loads(cookies)
             logger.success(f"🍪 Cookies обновлены для аккаунта {account_uuid}")
             logger.info(f"📊 Сохранено {len(cookies_list)} cookies")
-            logger.debug(f"Cookies: {cookies[:100]}...")
+            logger.debug(f"Cookies preview: {cookies[:100]}...")
             return True
             
         except Exception as e:

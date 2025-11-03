@@ -152,8 +152,9 @@ class ArticleStorage:
             if not results:
                 return None
             
-            # Округляем SPP до десятков для группировки похожих значений
-            rounded_spp = [round(r.spp / 10) * 10 for r in results]
+            # Округляем (фактически отбрасываем) SPP до нижних десятков
+            import math
+            rounded_spp = [math.floor(r.spp / 10) * 10 for r in results]
             
             # Подсчитываем самые частые SPP и dest
             spp_counter = Counter(rounded_spp)

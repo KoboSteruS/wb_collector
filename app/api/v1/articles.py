@@ -11,6 +11,7 @@ from collections import Counter
 from app.schemas import ArticleCreate, ArticleResponse, LinkResponse, ParsingStatus
 from app.models import Article
 from app.db import article_storage
+from app.db.storage import account_storage
 from app.services.scheduler import parsing_scheduler
 from app.core import logger
 
@@ -187,6 +188,7 @@ async def get_global_link() -> LinkResponse:
     all_spp = []
     all_dest = []
     all_card_discounts = []
+    discounts_by_account = {}
     total_articles = 0
     parsed_articles = 0
     
@@ -204,6 +206,9 @@ async def get_global_link() -> LinkResponse:
                 # Добавляем скидку по карте если есть
                 if hasattr(result, 'card_discount_percent') and result.card_discount_percent is not None:
                     all_card_discounts.append(result.card_discount_percent)
+                    acc_uuid = getattr(result, 'account_uuid', None)
+                    if acc_uuid:
+                        discounts_by_account.setdefault(acc_uuid, []).append(result.card_discount_percent)
     
     if not all_spp or not all_dest:
         raise HTTPException(
@@ -211,9 +216,10 @@ async def get_global_link() -> LinkResponse:
             detail="Нет данных парсинга. Запустите парсинг сначала."
         )
     
-    # Округляем SPP до десятков для группировки похожих значений
-    # Например: 43.93 -> 40, 47.34 -> 40, 53.76 -> 50
-    rounded_spp = [round(spp / 10) * 10 for spp in all_spp]
+    # Округляем (фактически отбрасываем) SPP до нижних десятков для группировки
+    # Например: 43.93 -> 40, 47.34 -> 40, 49.99 -> 40, 53.76 -> 50
+    import math
+    rounded_spp = [math.floor(spp / 10) * 10 for spp in all_spp]
     
     # Находим самые частые значения
     spp_counter = Counter(rounded_spp)
@@ -234,6 +240,19 @@ async def get_global_link() -> LinkResponse:
     avg_card_discount = None
     if all_card_discounts:
         avg_card_discount = round(sum(all_card_discounts) / len(all_card_discounts), 1)
+    
+    # Считаем среднюю по аккаунтам
+    avg_discount_by_account = []
+    for acc_uuid, values in discounts_by_account.items():
+        account = account_storage.get_account(acc_uuid)
+        avg_val = round(sum(values) / len(values), 1) if values else None
+        avg_discount_by_account.append({
+            "account_uuid": acc_uuid,
+            "account_name": account.name if account else None,
+            "avg_card_discount": avg_val,
+            "samples": len(values)
+        })
+    avg_discount_by_account.sort(key=lambda x: (x["avg_card_discount"] is not None, x["avg_card_discount"]), reverse=True)
     
     # Подсчитываем сколько записей попало в округленный диапазон
     spp_in_range = sum(1 for s in rounded_spp if s == most_common_spp)
@@ -259,7 +278,8 @@ async def get_global_link() -> LinkResponse:
             "total_data_points": len(all_spp),
             "unique_spp_values": len(spp_counter),
             "unique_dest_values": len(dest_counter),
-            "card_discounts_count": len(all_card_discounts)
+            "card_discounts_count": len(all_card_discounts),
+            "avg_card_discount_by_account": avg_discount_by_account
         }
     )
 
