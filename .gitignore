@@ -157,3 +157,10 @@ logs/
 temp/
 tmp/
 
+# Data files (user data, parsing results, cookies backups)
+data/*.json
+data/cookies_backup.json
+
+# Debug HTML files from WB parser
+wb_page_debug_*.html
+

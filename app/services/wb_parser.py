@@ -192,8 +192,25 @@ class WBParserService:
                 else:
                     logger.debug("✅ Попап открыт, ожидаем загрузки цен...")
                     
-                    # Ждем появления контента в попапе (максимум 5 секунд)
-                    time.sleep(2)  # Даём время для рендера React компонентов
+                    # Ждем появления контента в попапе с увеличенным таймаутом
+                    # Даём время для рендера React компонентов и загрузки цен
+                    max_wait_attempts = 5  # Максимум 5 попыток по 1 секунде
+                    prices_loaded = False
+                    
+                    for attempt in range(max_wait_attempts):
+                        time.sleep(1)
+                        try:
+                            # Проверяем, появились ли элементы с ценами
+                            test_elements = driver.find_elements("xpath", "//*[contains(text(), '₽') and string-length(text()) > 3]")
+                            if len(test_elements) > 3:  # Если нашли хотя бы 3 элемента с ценами
+                                logger.debug(f"✅ Цены загрузились после {attempt + 1} сек. ожидания")
+                                prices_loaded = True
+                                break
+                        except:
+                            pass
+                    
+                    if not prices_loaded:
+                        logger.warning(f"⚠️ Цены не загрузились за {max_wait_attempts} секунд")
                     
                     # Ищем цены в попапе по XPath для более точного поиска
                     try:
@@ -207,35 +224,42 @@ class WBParserService:
                     except Exception as e:
                         logger.debug(f"❌ Ошибка поиска элементов с ₽: {e}")
                     
-                    # Ищем цены в попапе
-                    popup_price_selectors = [
-                        ".walletPriceWrap--GjYV7 h2",  # Цена с картой в попапе
-                        ".finalPriceWrap--tKHRP h2",   # SPP цена в попапе
-                        ".finalPriceWrap--tKHRP span", # Старая цена в попапе
-                        "h2",  # Заголовки с ценами
-                        ".price-details-price",
-                        "[class*='price']"
-                    ]
-                    
-                    for selector in popup_price_selectors:
-                        try:
-                            elements = driver.find_elements("css selector", selector)
-                            for element in elements:
-                                text = element.text.strip()
-                                if "₽" in text and any(char.isdigit() for char in text):
-                                    price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
-                                    if price_text.isdigit():
-                                        if price_with_card is None:
-                                            price_with_card = int(price_text)
-                                            logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
-                                        elif base_price is None:
-                                            base_price = int(price_text)
-                                            logger.debug(f"📊 Обычная цена найдена: {base_price} ₽")
-                                            break
-                            if base_price:
-                                break
-                        except:
-                            continue
+                    # Парсим цены из попапа по классам на основе реальной структуры WB
+                    try:
+                        # 1. Ищем цену с WB картой (красная) - h2 с color_danger
+                        if not price_with_card:
+                            card_price_elems = driver.find_elements("xpath", 
+                                "//h2[contains(@class, 'mo-typography_color_danger') and contains(text(), '₽')]")
+                            if card_price_elems:
+                                text = card_price_elems[0].text.strip()
+                                price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                if price_text.isdigit():
+                                    price_with_card = int(price_text)
+                                    logger.debug(f"💳 Цена с картой найдена: {price_with_card} ₽")
+                        
+                        # 2. Ищем цену SPP - ins с priceBlockFinalPrice
+                        if not base_price:
+                            spp_price_elems = driver.find_elements("css selector", 
+                                "ins.priceBlockFinalPrice--iToZR, ins[class*='priceBlockFinalPrice']")
+                            if spp_price_elems:
+                                text = spp_price_elems[0].text.strip()
+                                price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                if price_text.isdigit():
+                                    base_price = int(price_text)
+                                    logger.debug(f"📊 Обычная цена найдена: {base_price} ₽")
+                        
+                        # 3. Ищем старую цену - span с priceBlockOldPrice (зачеркнутая)
+                        if not old_price:
+                            old_price_elems = driver.find_elements("css selector",
+                                "span.priceBlockOldPrice--qSWAf, span[class*='priceBlockOldPrice']")
+                            if old_price_elems:
+                                text = old_price_elems[0].text.strip()
+                                price_text = text.replace("₽", "").replace(" ", "").replace("\xa0", "").strip()
+                                if price_text.isdigit():
+                                    old_price = int(price_text)
+                                    logger.debug(f"📉 Старая цена: {old_price} ₽")
+                    except Exception as e:
+                        logger.debug(f"❌ Ошибка парсинга цен из попапа: {e}")
                 
                 # 2. Парсим цены из попапа или с основной страницы
                 time.sleep(1)  # Дополнительная пауза для загрузки
